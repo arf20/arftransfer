@@ -1,4 +1,4 @@
-# AFT Protocol - Version 1.0
+# AFT Protocol - Version 1.1
 A file transfer protocol over TCP/IP. One single connection client -> server, optionally supports gzip compression and TLS encryption.
 ## 1. Block Header Definition
 
@@ -18,7 +18,7 @@ struct block_header_t {
     uint16_t size;
 };
 ```
-Current protocol version is 1.0 (0x10)
+Current protocol version is 1.1 (0x11).
 
 ## 2. Block Types
 
@@ -37,6 +37,9 @@ In which case data:
 ```
 #### 2.1.3. 0x02 DATA (client -> server)
 Directly raw file data. Could be a whole file smaller than block size, or one of the blocks of the file. Block size is defined in the client and the server independently.
+#### 2.1.4. 0x03 COMPRESSED DATA
+Same as 2.1.3 but the data is gzip compressed.
+
 ### 2.2. From server
 #### 2.2.1. 0x00 PING ANSWER
 No data. Size = 0.
@@ -57,6 +60,8 @@ struct status_header_t {
 ```
 #### 2.2.3. 0x02 DATA (server -> client)
 Same as 2.1.3.
+#### 2.2.4. 0x03 COMPRESSED DATA
+Same as 2.1.4.
 
 ## 3. Commands
 From client
@@ -66,18 +71,22 @@ No action performed.
 Returns: 0x00 NS
 ### 3.2. 0x01 LS - Directory Listing
 No arguments.
-Returns: 0x01 LSD or 0x05 EACCESS on error
+Returns: 0x01 LSD or 0x05 EACCESS on error.
 ### 3.3. 0x02 CD - Change Directory
 Text argument: The name or path of a directory
-Returns: 0x02 ACK on success, or 0x03 ENODIR, 0x05 EACCESS or 0x06 ESYS on error
+Returns: 0x02 ACK on success, or 0x03 ENODIR, 0x05 EACCESS or 0x06 ESYS on error.
 ### 3.4. 0x03 GET - Get File
 Text argument: The name or path of file to get
-Returns: 0x02 ACK on success, or 0x04 NOFILE, 0x05 EACCESS or 0x06 ESYS on error
-The client should now receive 0x02 DATA blocks from server
+Returns: 0x02 ACK on success, or 0x04 NOFILE, 0x05 EACCESS or 0x06 ESYS on error.
+The client should now receive 0x02 DATA blocks from server.
 ### 3.4. 0x04 PUT - Put File
 Text argument: The name or path of file to put
 Returns: 0x02 ACK on success, or 0x05 EACCESS or 0x06 ESYS on error
-The client should now transmit 0x02 DATA blocks to server
+The client should now transmit 0x02 DATA blocks to server.
+### 3.5. 0x05 ENCRYPT - Begin TLS Encryption
+No arguments. Triggers TLS handshake.
+Result: The server accept()s a TLS handshake.
+Inmediately followed by a TLS connect() by the client.
 
 ## 4. Status
 From server

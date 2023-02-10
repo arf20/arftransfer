@@ -1,4 +1,4 @@
-# AFT Protocol Specification - Version 1.2
+# AFT Protocol Specification - Version 1.3
 A file transfer protocol over TCP/IP. One single connection client -> server, optionally supports gzip compression and TLS encryption.
 
 ## 1. Block Header Definition
@@ -19,7 +19,7 @@ struct block_header_t {
     uint16_t size;
 };
 ```
-Current protocol version is 1.2 (0x12).
+Current protocol version is 1.3 (0x13).
 
 ## 2. Block Types
 ### 2.1. From client
@@ -75,29 +75,34 @@ From client
 ### 3.1. 0x00 NC - Null Command
 No arguments.  
 No action performed.  
-**Returns**: 0x00 NS
+**Returns**: NS
 ### 3.2. 0x01 LOGIN - Log in the system
 **Text argument first**: Username.<sup>2</sup>  
 **Text argument second**: Password.<sup>3</sup> 
-**Returns**: 0x01 LOGGEDIN or 0x04 ELOGIN
-### 3.2. 0x02 LS - Directory Listing
+**Returns**: LOGGED or ELOGIN
+### 3.3. 0x02 PWD - Get Working Directory
+No arguments. 
+**Returns**: PWDD or EANON
+### 3.4. 0x03 LS - Directory Listing
 No arguments.  
-**Returns**: 0x02 LSD, or 0x05 ENODIR or 0x07 EACCESS on error.  
-### 3.3. 0x03 CD - Change Directory
+**Returns**: LSD or EANON
+### 3.5. 0x04 CD - Change Directory
 **Text argument**: The name or path of a directory.<sup>1</sup>  
-**Returns**: 0x03 ACK on success, or 0x05 ENODIR, 0x07 EACCESS or 0x08 ESYS on error.  
-### 3.4. 0x04 GET - Get File
+**Returns**: ACK on success, or EANON, ENODIR, EACCESS or ESYS on error.  
+### 3.6. 0x05 GET - Get File
 **Text argument**: The name or path of file to get.<sup>1</sup>  
-**Returns**: 0x03 ACK on success, or 0x06 NOFILE, 0x07 EACCESS or 0x08 ESYS on error.  
+**Returns**: ACK on success, or EANON, NOFILE, EACCESS or ESYS on error.  
 The client should now receive 0x02 DATA blocks from server.  
-### 3.4. 0x05 PUT - Put File
+### 3.7. 0x06 PUT - Put File
 **Text argument**: The name or path of file to put.<sup>1</sup>  
-**Returns**: 0x03 ACK on success, or 0x07 EACCESS or 0x08 ESYS on error.  
-The client should now transmit 0x02 DATA blocks to server.  
-### 3.5. 0x06 ENCRYPT - Begin TLS Encryption
+**Returns**: ACK on success, or EANON, EACCESS or ESYS on error.  
+The client should now transmit (C)DATA blocks to server.  
+### 3.8. 0x07 ENCRYPT - Begin TLS Encryption
 No arguments. Triggers TLS handshake.  
 Result: The server accept()s a TLS handshake.  
-Inmediately followed by a TLS connect() by the client.  
+Inmediately followed by a TLS connect() by the client. 
+### 3.9. 0x08 CLOSE - Close Connection Gracefully 
+No arguments. Terminates the TLS connection.
 
 <sup>1</sup>Subject to system MAX_PATH, 4096 in Linux.  
 <sup>2</sup>Subject to system max username lenth, 32 in Linux.  
@@ -105,11 +110,13 @@ Inmediately followed by a TLS connect() by the client.
 
 ## 4. Status
 From server
-### 4.1. 0x00 NS - Null Status
+### 4.1.  0x00 NS - Null Status
 No data.
-### 4.2. 0x01 LOGGEDIN - Log In Successful
+### 4.2.  0x01 LOGGED - Logged In Successfully
 No data.
-### 4.2. 0x02 LSD - List Directory Data
+### 4.3.  0x02 PWDD - Get Working Directory Data
+Data contains NUL terminated C-string of the current directory
+### 4.4.  0x03 LSD - List Directory Data
 Data contains a number of entries, each as:
 ```
 <--------- 4 bytes --------->
@@ -143,24 +150,41 @@ struct dir_entry_t {
 ```
 Each entry is henceforth 324 bytes
 
-### 4.3. 0x03 ACK - Command Acknowledge
+### 4.5.  0x04 ACK - Command Acknowledge
 No data. Result of succesful command.
-### 4.3. 0x04 ELOGIN - Incorrect Login
+### 4.6.  0x05 EANON - Login Required
+No data. Triggered by data commands.
+### 4.7.  0x06 ELOGIN - Incorrect Login
+No data. 
+### 4.8.  0x07 ENODIR - Directory does not exist
 No data.
-### 4.4. 0x05 ENODIR - Directory does not exist
+### 4.9.  0x08 ENOFILE - File does not exist
 No data.
-### 4.5. 0x06 ENOFILE - File does not exist
+### 4.10. 0x09 EACCESS - Permission denied
 No data.
-### 4.6. 0x07 EACCESS - Permission denied
-No data.
-### 4.7. 0x08 ESYS - Generic system error in the server
+### 4.11. 0x0a ESYS - Generic system error in the server
 No data.
 
 ## 5. Revision History
 ### 5.1. Version 1.0.
 Initial protocol. Basic file transfer. No login, gzip or encryption.
 ### 5.2. Version 1.1.
-Added 0x03 COMPRESSED DATA block, and 0x06 ENCRYPT command. Backwards compatible.
+Added COMPRESSED DATA block, and ENCRYPT command. Backwards compatible.
 ### 5.3. Version 1.2.
-Added 0x01 LOGIN and appropiate status. Moved the rest making this version not backwards compatible. Use only this version.
+Added LOGIN and appropiate status. Not backwards compatible.
+### 5.4. Version 1.3.
+Added PWD and CLOSE commands, and PWDD and EANON status. Not backwards compatible. Use only this version.
 
+## Appendix A. Command and status cheat sheet
+```
+     CMD         STAT         ESTAT
+0x00 NC     0x00 NS
+0x01 LOGIN  0x01 LOGGED  0x06 ELOGIN
+0x02 PWD    0x02 PWDD    0x05 EANON
+0x03 LS     0x03 LSD     0x05 EANON    
+0x04 CD     0x04 ACK     0x05 EANON,  0x07 ENODIR,                0x09 EACCESS, 0x0a ESYS
+0x05 GET    0x04 ACK     0x05 EANON,                0x08 ENOFILE, 0x09 EACCESS, 0x0a ESYS
+0x06 PUT    0x04 ACK     0x05 EANON,                              0x09 EACCESS, 0x0a ESYS
+0x07 ENCRYPT <accept TLS>
+0x08 CLOSE
+```

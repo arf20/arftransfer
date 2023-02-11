@@ -43,7 +43,7 @@ struct command_header_t {
 ```
 Text arguments are NUL terminated C-strings one after another.
 #### 2.1.3. 0x02 DATA (client -> server)
-Directly raw file data. Could be a whole file smaller than block size, or one of the blocks of the file. Block size is defined in the client and the server independently.
+Directly raw file data. Could be a whole file smaller than block size, or one of the blocks of the file. Block size is defined in the client and the server independently. THe maximum block size is 65535 (0xffff).
 #### 2.1.4. 0x03 COMPRESSED DATA
 Same as 2.1.3 but the data is gzip compressed.
 
@@ -152,18 +152,19 @@ Each entry is henceforth 324 bytes
 
 ### 4.5.  0x04 ACK - Command Acknowledge
 No data. Result of succesful command.
-### 4.6.  0x05 EANON - Login Required
+### 4.6.  0x05 EANON - Error Login Required
 No data. Triggered by data commands.
-### 4.7.  0x06 ELOGIN - Incorrect Login
+### 4.7.  0x06 ELOGIN - Error Incorrect Login
 No data. 
-### 4.8.  0x07 ENODIR - Directory does not exist
+### 4.8.  0x07 ENODIR - Error Directory does not exist
 No data.
-### 4.9.  0x08 ENOFILE - File does not exist
+### 4.9.  0x08 ENOFILE - Error File does not exist
 No data.
-### 4.10. 0x09 EACCESS - Permission denied
+### 4.10. 0x09 EACCESS - PError ermission denied
 No data.
 ### 4.11. 0x0a ESYS - Generic system error in the server
 No data.
+### 4.12. 0x0b ENOTIMPL - Error Not Implemented 
 
 ## 5. Revision History
 ### 5.1. Version 1.0.

@@ -1,14 +1,14 @@
-# libarftransfer API specification Version 1.2
+# libarftransfer API specification Version 1.3
 ## 1. Functions
 ### 1.1. Client
-#### 1.1.1. int aft_connect(const char *host, uint16_t port)
+#### 1.1.1. int aft_open(const char *host, uint16_t port)
 Connect to host
 **host**: Host to connect to
 **port**: Port to connect to
 **Returns**: Socket fd or -1
-#### 1.1.2. float aft_echo()
+#### 1.1.2. int aft_ping(int fd, struct timespec *rtt)
 Do echo block and receive answer, measuring round trip time
-**Returns**: RTT in ms or -1.0f on error
+**Returns**: RTT in ms or zeroed timespec on error
 #### 1.1.3. int aft_login(const char *user, const char *passwd)
 Attempt login
 **user**: Username

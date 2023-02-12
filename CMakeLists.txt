@@ -10,17 +10,17 @@ link_directories("/usr/local/lib")
 
 # library
 file (GLOB LIB_SRC
-    "libarftransfer/*.cpp"
+    "libarftransfer/*.c"
 )
 
-add_library(libarftransfer ${LIB_SRC})
+add_library(arftransfer SHARED ${LIB_SRC})
 
 # client
 file (GLOB CLIENT_SRC
     "client/*.cpp"
 )
 
-add_executable(arftransfer ${CLIENT_SRC})
+add_executable(arftransferc ${CLIENT_SRC})
 
 # server
 file (GLOB SERVER_SRC

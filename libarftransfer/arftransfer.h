@@ -3,8 +3,9 @@
 
 #include <stdint.h>
 #include <sys/types.h>
+#include <time.h>
 
-#define AFT_VER 0x12
+#define AFT_VER 0x13
 
 #define AFT_MAX_BLOCK_SIZE      0xffff
 
@@ -96,14 +97,31 @@ typedef struct dir_s {
 } dir_t;
 
 /* Implementation errors */
+#define AFT_OK              0
+#define AFT_ERROR           -1
 /* Block parse errors */
-#define AFT_BPERR_VERSION   1   /* Version mismatch */
-#define AFT_BPERR_TYPE      2   /* Unrecongnised type mismatch */
-#define AFT_BPERR_SIZE      3   /* Size too big */
-#define AFT_CBIERR_TYPE     4   /* Cannot inflate - wrong block type */
+#define AFT_BPERR_VERSION   1    /* Block version mismatch */
+#define AFT_BPERR_TYPE      2    /* Unrecongnised block type */
+#define AFT_BPERR_SIZE      3    /* Block Size too big */
 /* Command parse errors */
-#define AFT_CPERR_CMD       5   /* Unrecognised command */
+#define AFT_CPERR_CMD       4    /* Unrecognised command */
 /* Status parse errors */
-#define AFT_SPERR_STAT      6   /* Unrecognised status */
+#define AFT_SPERR_STAT      5    /* Unrecognised status */
+/* Compressing errors */
+#define AFT_CBIERR_TYPE     6    /* Cannot inflate - wrong block type */
+#define AFT_ZERR_INFLATE    7    /* Inflate error */
+#define AFT_ZERR_DEFLATE    8    /* Deflate error */
+/* Socket errors */
+#define AFT_SYSERR_SOCKET   9    /* Unable to create socket */
+#define AFT_SYSERR_RESOLV   10   /* Unable to resolve host */
+#define AFT_SYSERR_NOIP     11   /* No IP address found for host */
+#define AFT_SYSERR_CONNECT  12   /* Unable to connect */
+#define AFT_SYSERR_RECV     13   /* Error receiving */
+#define AFT_SYSERR_SEND     14   /* Error sending */
+/* Protocol errors */
+#define AFT_PERR_TYPE       15   /* Unexpected wrong block type received */
+
+/* Client functions */
+int aft_ping(int fd, struct timespec *rtt);
 
 #endif /* _ARFTRANSFER_H */

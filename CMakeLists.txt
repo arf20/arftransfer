@@ -8,6 +8,8 @@ find_package(Threads REQUIRED)
 include_directories("/usr/local/include")
 link_directories("/usr/local/lib")
 
+include_directories(".")
+
 # library
 file (GLOB LIB_SRC
     "libarftransfer/*.c"
@@ -20,12 +22,13 @@ file (GLOB CLIENT_SRC
     "client/*.cpp"
 )
 
-add_executable(arftransferc ${CLIENT_SRC})
+add_executable(arftransferc ${LIB_SRC} ${CLIENT_SRC})
+target_link_libraries(arftransferc PRIVATE Threads::Threads z)
 
 # server
 file (GLOB SERVER_SRC
     "server/*.cpp"
 )
 
-add_executable(arftransferd ${SERVER_SRC})
-target_link_libraries(arftransferd PRIVATE Threads::Threads)
+add_executable(arftransferd ${LIB_SRC} ${SERVER_SRC})
+target_link_libraries(arftransferd PRIVATE Threads::Threads z)

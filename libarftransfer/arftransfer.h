@@ -1,6 +1,10 @@
 #ifndef _ARFTRANSFER_H
 #define _ARFTRANSFER_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include <sys/types.h>
 #include <time.h>
@@ -135,6 +139,8 @@ int aft_init();
 void aft_cleanup();
 int aft_get_last_error();
 const char *aft_get_last_error_str();
+int aft_get_last_sys_error();
+const char* aft_get_last_sys_error_str();
 int aft_close();
 int aft_send_data(int fd, const char *data, dsize_t size);
 int aft_send_cdata(int fd, const char *data, dsize_t size);
@@ -142,5 +148,9 @@ int aft_send_cdata(int fd, const char *data, dsize_t size);
 int aft_open(const char *host, uint16_t port);
 int aft_ping(int fd, struct timespec *rtt);
 int aft_login(int fd, const char *user, const char *passwd);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _ARFTRANSFER_H */

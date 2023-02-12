@@ -262,6 +262,16 @@ aft_get_last_error_str() {
 }
 
 int
+aft_get_last_sys_error() {
+    return lastsyserror;
+}
+
+const char*
+aft_get_last_sys_error_str() {
+    return strerror(lastsyserror);
+}
+
+int
 aft_close(int fd) {
     aft_send_cmd(fd, AFT_CMD_CLOSE, NULL, 0); /* error here is unimportant */
     if (close(fd) < 0) {
@@ -311,7 +321,6 @@ aft_send_cdata(int fd, const char *data, dsize_t size) {
 int
 aft_open(const char *host, uint16_t port) {
     struct hostent *he;
-    struct in_addr **addr_list;
     struct sockaddr_in serv_addr = { 0 };
     int fd;
     
@@ -321,9 +330,7 @@ aft_open(const char *host, uint16_t port) {
         return AFT_ERROR;
     }
 
-    addr_list = (struct in_addr**)he->h_addr_list;
-
-    if (addr_list == NULL || addr_list[0] == NULL) {
+    if (he == NULL || he->h_addr_list == NULL || he->h_addr_list[0] == NULL) {
         lasterror = AFT_SYSERR_NOIP;
         lastsyserror = errno;
         return AFT_ERROR;
@@ -331,7 +338,7 @@ aft_open(const char *host, uint16_t port) {
 
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(port);
-    serv_addr.sin_addr = *addr_list[0];
+    serv_addr.sin_addr = *((struct in_addr*)he->h_addr_list[0]);
 
     if ((fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
         lasterror = AFT_SYSERR_SOCKET;

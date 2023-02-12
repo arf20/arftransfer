@@ -26,8 +26,8 @@ global int lastsyserror = 0;
 global int lastzerror = 0;
 
 const char *errorstr[] = {
-    "No error",
-    "Version mismatch",
+    [AFT_OK] = "No error",
+    [AFT_BPERR_VERSION] = "Version mismatch",
     "Unrecongnised block type",
     "Block size too big",
     "Unrecognised command",
@@ -49,7 +49,9 @@ const char *errorstr[] = {
 #define ENABLE_ZLIB_GZIP 32
 
 /* Private util */
-struct timespec diff_timespec(const struct timespec *time1, const struct timespec *time0) {
+struct timespec diff_timespec(const struct timespec *time1,
+    const struct timespec *time0)
+{
     assert(time1);
     assert(time0);
     struct timespec diff = {.tv_sec = time1->tv_sec - time0->tv_sec,
@@ -83,7 +85,8 @@ aft_send_cmd(int fd, cmd_t cmd, const char *targ, dsize_t size) {
     header->cmd = cmd;
     header->size = size;
     memcpy(cmdbuf + sizeof(command_header_t), targ, size);
-    return aft_send_block(fd, AFT_TYPE_CMD, cmdbuf, size + sizeof(command_header_t));
+    return aft_send_block(fd, AFT_TYPE_CMD, cmdbuf,
+        size + sizeof(command_header_t));
 }
 
 int
@@ -92,7 +95,8 @@ aft_send_stat(int fd, stat_t stat, const char *data, dsize_t size) {
     header->stat = stat;
     header->size = size;
     memcpy(statbuf + sizeof(status_header_t), data, size);
-    return aft_send_block(fd, AFT_TYPE_STAT, statbuf, size + sizeof(status_header_t));
+    return aft_send_block(fd, AFT_TYPE_STAT, statbuf,
+        size + sizeof(status_header_t));
 }
 
 
@@ -117,7 +121,9 @@ aft_check_block(const block_t *block) {
         return AFT_ERROR;
     }
 
-    if (!(block->header.type >= AFT_TYPE_PING && block->header.type <= AFT_TYPE_CDATA)) {
+    if (!(block->header.type >= AFT_TYPE_PING &&
+        block->header.type <= AFT_TYPE_CDATA))
+    {
         lasterror = AFT_BPERR_TYPE;
         return AFT_ERROR;
     }
@@ -163,13 +169,13 @@ aft_inflate_cdatab(const block_t *cdatab, block_t *datab) {
 }
 
 void
-aft_parse_cmd(const char *data, dsize_t bsize, command_t *command) { // size of arg or -1
+aft_parse_cmd(const char *data, dsize_t bsize, command_t *command) {
     command->header = *(command_header_t*)data;
     command->targ = (char*)data + sizeof(command_header_t);
 }
 
 void
-aft_parse_stat(const char *data, dsize_t bsize, status_t *status) { // size of data or -1
+aft_parse_stat(const char *data, dsize_t bsize, status_t *status) {
     status->header = *(status_header_t*)data;
     status->sdata = (char*)data + sizeof(status_header_t);
 }
@@ -198,7 +204,9 @@ aft_recv_stat(int fd, status_t *status) {
 
 int
 aft_check_cmd(const command_t *command) {
-    if (!(command->header.cmd >= AFT_CMD_NC && command->header.cmd <= AFT_CMD_CLOSE)) {
+    if (!(command->header.cmd >= AFT_CMD_NC &&
+        command->header.cmd <= AFT_CMD_CLOSE))
+    {
         lasterror = AFT_CPERR_CMD;
         return AFT_ERROR;
     }
@@ -207,7 +215,9 @@ aft_check_cmd(const command_t *command) {
 
 int
 aft_check_stat(const status_t *command) {
-    if (!(command->header.stat >= AFT_STAT_NS && command->header.stat <= AFT_STAT_ESYS)) {
+    if (!(command->header.stat >= AFT_STAT_NS &&
+        command->header.stat <= AFT_STAT_ESYS))
+    {
         lasterror = AFT_SPERR_STAT;
         return AFT_ERROR;
     }
@@ -219,11 +229,14 @@ aft_check_stat(const status_t *command) {
 int
 aft_init() {
     /* allocate buffers */
-    if ((blockbuf = malloc(AFT_MAX_BLOCK_SIZE + sizeof(block_header_t))) == NULL)
+    if ((blockbuf = malloc(AFT_MAX_BLOCK_SIZE +
+        sizeof(block_header_t))) == NULL)
         return AFT_ERROR;
-    if ((cmdbuf = malloc(AFT_MAX_BLOCK_SIZE + sizeof(block_header_t) + sizeof(command_header_t))) == NULL)
+    if ((cmdbuf = malloc(AFT_MAX_BLOCK_SIZE + sizeof(block_header_t) +
+        sizeof(command_header_t))) == NULL)
         return AFT_ERROR;
-    if ((statbuf = malloc(AFT_MAX_BLOCK_SIZE + sizeof(block_header_t) + sizeof(status_header_t))) == NULL)
+    if ((statbuf = malloc(AFT_MAX_BLOCK_SIZE + sizeof(block_header_t) +
+        sizeof(status_header_t))) == NULL)
         return AFT_ERROR;
     if ((databuf = malloc(AFT_MAX_BLOCK_SIZE)) == NULL)
         return AFT_ERROR;
@@ -274,7 +287,9 @@ aft_send_cdata(int fd, const char *data, dsize_t size) {
     zs.avail_out = (uInt)AFT_MAX_BLOCK_SIZE;
     zs.next_out = (Bytef*)databuf;
 
-    if (deflateInit2(&zs, Z_DEFAULT_COMPRESSION, Z_DEFLATED, 15 | 16, 8, Z_DEFAULT_STRATEGY) != Z_OK) {
+    if (deflateInit2(&zs, Z_DEFAULT_COMPRESSION, Z_DEFLATED, 15 | 16, 8,
+        Z_DEFAULT_STRATEGY) != Z_OK)
+    {
         lasterror = AFT_ZERR_DEFLATE;
         return AFT_ERROR;
     }
@@ -324,7 +339,9 @@ aft_open(const char *host, uint16_t port) {
         return AFT_ERROR;
     }
 
-    if (connect(fd, (struct sockaddr*)&serv_addr, sizeof(struct in_addr)) == -1) {
+    if (connect(fd, (struct sockaddr*)&serv_addr,
+        sizeof(struct in_addr)) == -1)
+    {
         lasterror = AFT_SYSERR_CONNECT;
         lastsyserror = errno;
         return AFT_ERROR;

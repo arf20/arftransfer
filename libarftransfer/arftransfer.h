@@ -11,39 +11,43 @@
 
 /* Block types */
 /*   Common between server and client */
-#define AFT_TYPE_PING    0x00
-#define AFT_TYPE_CMD     0x01
-#define AFT_TYPE_STAT    0x01
-#define AFT_TYPE_DATA    0x02
-#define AFT_TYPE_CDATA   0x03
+#define AFT_TYPE_PING           0x00
+#define AFT_TYPE_CMD            0x01
+#define AFT_TYPE_STAT           0x01
+#define AFT_TYPE_DATA           0x02
+#define AFT_TYPE_CDATA          0x03
 
 /* Command types */
-#define AFT_CMD_NC              0x00
-#define AFT_CMD_LOGIN           0x01
-#define AFT_CMD_PWD             0x02
-#define AFT_CMD_LS              0x03
-#define AFT_CMD_CD              0x04
-#define AFT_CMD_GET             0x05
-#define AFT_CMD_PUT             0x06
-#define AFT_CMD_ENCRYPT         0x07
-#define AFT_CMD_CLOSE           0x08
+enum {
+    AFT_CMD_NC,
+    AFT_CMD_LOGIN,
+    AFT_CMD_PWD,
+    AFT_CMD_LS,
+    AFT_CMD_CD,
+    AFT_CMD_GET,
+    AFT_CMD_PUT,
+    AFT_CMD_ENCRYPT,
+    AFT_CMD_CLOSE
+};
 /* Status types */
-#define AFT_STAT_NS             0x00
-#define AFT_STAT_LOGGED         0x01
-#define AFT_STAT_PWDD           0x02
-#define AFT_STAT_LSD            0x03
-#define AFT_STAT_ACK            0x04
-#define AFT_STAT_EANON          0x05
-#define AFT_STAT_ELOGIN         0x06
-#define AFT_STAT_ENODIR         0x07
-#define AFT_STAT_ENOFILE        0x08
-#define AFT_STAT_EACCESS        0x09
-#define AFT_STAT_ESYS           0x0a
+enum {
+    AFT_STAT_NS,
+    AFT_STAT_LOGGED,
+    AFT_STAT_PWDD,
+    AFT_STAT_LSD,
+    AFT_STAT_ACK,
+    AFT_STAT_EANON,
+    AFT_STAT_ELOGIN,
+    AFT_STAT_ENODIR,
+    AFT_STAT_ENOFILE,
+    AFT_STAT_EACCESS,
+    AFT_STAT_ESYS
+};
 
 /* Types */
 typedef uint8_t type_t;
 typedef uint8_t ver_t;
-typedef uint8_t dsize_t;
+typedef uint16_t dsize_t;
 typedef uint8_t cmd_t;
 typedef uint8_t stat_t;
 
@@ -96,37 +100,39 @@ typedef struct dir_s {
 } dir_t;
 
 /* Implementation errors */
-#define AFT_OK              0
-#define AFT_ERROR           -1
+enum {
+    AFT_ERROR = -1,
+    AFT_OK,
 /* Block parse errors */
-#define AFT_BPERR_VERSION   1    /* Block version mismatch */
-#define AFT_BPERR_TYPE      2    /* Unrecongnised block type */
-#define AFT_BPERR_SIZE      3    /* Block Size too big */
+    AFT_BPERR_VERSION,       /* Block version mismatch */
+    AFT_BPERR_TYPE,          /* Unrecongnised block type */
+    AFT_BPERR_SIZE,          /* Block Size too big */
 /* Command parse errors */
-#define AFT_CPERR_CMD       4    /* Unrecognised command */
+    AFT_CPERR_CMD,           /* Unrecognised command */
 /* Status parse errors */
-#define AFT_SPERR_STAT      5    /* Unrecognised status */
+    AFT_SPERR_STAT,          /* Unrecognised status */
 /* Compressing errors */
-#define AFT_CBIERR_TYPE     6    /* Cannot inflate - wrong block type */
-#define AFT_ZERR_INFLATE    7    /* Inflate error */
-#define AFT_ZERR_DEFLATE    8    /* Deflate error */
+    AFT_CBIERR_TYPE,         /* Cannot inflate - wrong block type */
+    AFT_ZERR_INFLATE,        /* Inflate error */
+    AFT_ZERR_DEFLATE,        /* Deflate error */
 /* Socket errors */
-#define AFT_SYSERR_SOCKET   9    /* Unable to create socket */
-#define AFT_SYSERR_RESOLV   10   /* Unable to resolve host */
-#define AFT_SYSERR_NOIP     11   /* No IP address found for host */
-#define AFT_SYSERR_CONNECT  12   /* Unable to connect */
-#define AFT_SYSERR_RECV     13   /* Error receiving */
-#define AFT_SYSERR_SEND     14   /* Error sending */
-#define AFT_SYSERR_CLOSE    15   /* Error closing */
+    AFT_SYSERR_SOCKET,       /* Unable to create socket */
+    AFT_SYSERR_RESOLV,       /* Unable to resolve host */
+    AFT_SYSERR_NOIP,         /* No IP address found for host */
+    AFT_SYSERR_CONNECT,      /* Unable to connect */
+    AFT_SYSERR_RECV,         /* Error receiving */
+    AFT_SYSERR_SEND,         /* Error sending */
+    AFT_SYSERR_CLOSE,        /* Error closing */
 /* Protocol errors */
-#define AFT_PERR_TYPE       16   /* Unexpected wrong block type received */
+    AFT_PERR_TYPE,           /* Unexpected wrong block type received */
 
 /* Normal errors */
-#define AFT_ERR_LOGIN       17   /* Incorrect login */
+    AFT_ERR_LOGIN            /* Incorrect login */
+};
 
 /* Exports */
 int aft_init();
-int aft_cleanup();
+void aft_cleanup();
 int aft_get_last_error();
 const char *aft_get_last_error_str();
 int aft_close();

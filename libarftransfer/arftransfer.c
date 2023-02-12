@@ -95,39 +95,7 @@ aft_send_stat(int fd, stat_t stat, const char *data, dsize_t size) {
     return aft_send_block(fd, AFT_TYPE_STAT, statbuf, size + sizeof(status_header_t));
 }
 
-int
-aft_send_data(int fd, const char *data, dsize_t size) {
-    return aft_send_block(fd, AFT_TYPE_DATA, data, size);
-}
 
-int
-aft_send_cdata(int fd, const char *data, dsize_t size) {
-    z_stream zs;
-    zs.zalloc = Z_NULL;
-    zs.zfree = Z_NULL;
-    zs.opaque = Z_NULL;
-    zs.avail_in = (uInt)size;
-    zs.next_in = (Bytef*)data;
-    zs.avail_out = (uInt)AFT_MAX_BLOCK_SIZE;
-    zs.next_out = (Bytef*)databuf;
-
-    if (deflateInit2(&zs, Z_DEFAULT_COMPRESSION, Z_DEFLATED, 15 | 16, 8, Z_DEFAULT_STRATEGY) != Z_OK) {
-        lasterror = AFT_ZERR_DEFLATE;
-        return AFT_ERROR;
-    }
-
-    if (deflate(&zs, Z_FINISH)) {
-        lasterror = AFT_ZERR_DEFLATE;
-        return AFT_ERROR;
-    }
-
-    if (deflateEnd(&zs)) {
-        lasterror = AFT_ZERR_DEFLATE;
-        return AFT_ERROR;
-    }
-
-    return aft_send_block(fd, AFT_TYPE_CDATA, databuf, zs.total_out);
-}
 
 int
 aft_recv_block(int fd, block_t *block) { // size or -1
@@ -207,6 +175,28 @@ aft_parse_stat(const char *data, dsize_t bsize, status_t *status) { // size of d
 }
 
 int
+aft_recv_stat(int fd, status_t *status) {
+    block_t statb = { 0 };
+
+    if (aft_recv_block(fd, &statb) != AFT_OK) {
+        lasterror = AFT_SYSERR_RECV;
+        lastsyserror = errno;
+        return AFT_ERROR;
+    }
+
+    if (aft_check_block(&statb) != AFT_OK) {
+        return AFT_ERROR;
+    }
+
+    if (statb.header.type != AFT_TYPE_STAT) {
+        lasterror = AFT_PERR_TYPE;
+        return AFT_ERROR;
+    }
+
+    aft_parse_stat(statb.data, statb.header.size, status);
+}
+
+int
 aft_check_cmd(const command_t *command) {
     if (!(command->header.cmd >= AFT_CMD_NC && command->header.cmd <= AFT_CMD_CLOSE)) {
         lasterror = AFT_CPERR_CMD;
@@ -240,6 +230,14 @@ aft_init() {
     return AFT_OK;
 }
 
+void
+aft_cleanup() {
+    free(blockbuf);
+    free(cmdbuf);
+    free(statbuf);
+    free(databuf);
+}
+
 int
 aft_get_last_error() {
     return lasterror;
@@ -248,6 +246,50 @@ aft_get_last_error() {
 const char*
 aft_get_last_error_str() {
     return errorstr[lasterror];
+}
+
+int
+aft_close(int fd) {
+    aft_send_cmd(fd, AFT_CMD_CLOSE, NULL, 0); /* error here is unimportant */
+    if (close(fd) < 0) {
+        lasterror = AFT_SYSERR_CLOSE;
+        lastsyserror = errno;
+        return AFT_ERROR;
+    }
+}
+
+int
+aft_send_data(int fd, const char *data, dsize_t size) {
+    return aft_send_block(fd, AFT_TYPE_DATA, data, size);
+}
+
+int
+aft_send_cdata(int fd, const char *data, dsize_t size) {
+    z_stream zs;
+    zs.zalloc = Z_NULL;
+    zs.zfree = Z_NULL;
+    zs.opaque = Z_NULL;
+    zs.avail_in = (uInt)size;
+    zs.next_in = (Bytef*)data;
+    zs.avail_out = (uInt)AFT_MAX_BLOCK_SIZE;
+    zs.next_out = (Bytef*)databuf;
+
+    if (deflateInit2(&zs, Z_DEFAULT_COMPRESSION, Z_DEFLATED, 15 | 16, 8, Z_DEFAULT_STRATEGY) != Z_OK) {
+        lasterror = AFT_ZERR_DEFLATE;
+        return AFT_ERROR;
+    }
+
+    if (deflate(&zs, Z_FINISH)) {
+        lasterror = AFT_ZERR_DEFLATE;
+        return AFT_ERROR;
+    }
+
+    if (deflateEnd(&zs)) {
+        lasterror = AFT_ZERR_DEFLATE;
+        return AFT_ERROR;
+    }
+
+    return aft_send_block(fd, AFT_TYPE_CDATA, databuf, zs.total_out);
 }
 
 /* client functions */
@@ -293,7 +335,7 @@ aft_open(const char *host, uint16_t port) {
 
 int
 aft_ping(int fd, struct timespec *rtt) {
-    block_t echo;
+    block_t echo = { 0 };
     struct timespec start;
     struct timespec end;
 
@@ -302,7 +344,7 @@ aft_ping(int fd, struct timespec *rtt) {
 
     /* wait for answer */
     clock_gettime(CLOCK_REALTIME, &start);
-    if (aft_recv_block(fd, &echo) < 0) {
+    if (aft_recv_block(fd, &echo) != AFT_OK) {
         lasterror = AFT_SYSERR_RECV;
         lastsyserror = errno;
         return AFT_ERROR;
@@ -317,5 +359,36 @@ aft_ping(int fd, struct timespec *rtt) {
     }
 
     *rtt = diff_timespec(&end, &start);
+    return AFT_OK;
+}
+
+int
+aft_login(int fd, const char *user, const char *passwd) {
+    size_t userlen = strlen(user) + 1;
+    size_t passwdlen = strlen(user) + 1;
+    dsize_t arglen = userlen + passwdlen;
+    char *targ = malloc(arglen);
+    memcpy(targ, user, userlen);
+    memcpy(targ + userlen, user, passwdlen);
+
+    if (aft_send_cmd(fd, AFT_CMD_LOGIN, targ, arglen) != AFT_OK) {
+        free(targ);
+        lasterror = AFT_SYSERR_SEND;
+        lastsyserror = errno;
+        return AFT_ERROR;
+    }
+
+    free(targ);
+
+    status_t loginres = { 0 };
+    if (aft_recv_stat(fd, &loginres) != AFT_OK) {
+        return AFT_ERROR;
+    }
+
+    if (loginres.header.stat != AFT_STAT_LOGGED) {
+        lasterror = AFT_ERR_LOGIN;
+        return AFT_ERROR;
+    }
+
     return AFT_OK;
 }

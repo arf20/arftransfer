@@ -17,7 +17,6 @@
 #define AFT_TYPE_DATA    0x02
 #define AFT_TYPE_CDATA   0x03
 
-
 /* Command types */
 #define AFT_CMD_NC              0x00
 #define AFT_CMD_LOGIN           0x01
@@ -118,9 +117,18 @@ typedef struct dir_s {
 #define AFT_SYSERR_CONNECT  12   /* Unable to connect */
 #define AFT_SYSERR_RECV     13   /* Error receiving */
 #define AFT_SYSERR_SEND     14   /* Error sending */
+#define AFT_SYSERR_CLOSE    15   /* Error closing */
 /* Protocol errors */
-#define AFT_PERR_TYPE       15   /* Unexpected wrong block type received */
+#define AFT_PERR_TYPE       16   /* Unexpected wrong block type received */
 
+/* Normal errors */
+#define AFT_ERR_LOGIN       17   /* Incorrect login */
+
+/* Exports */
+int aft_init();
+int aft_get_last_error();
+const char *aft_get_last_error_str();
+int aft_close();
 /* Client functions */
 int aft_ping(int fd, struct timespec *rtt);
 

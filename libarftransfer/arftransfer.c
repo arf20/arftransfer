@@ -320,34 +320,35 @@ aft_send_cdata(int fd, const char *data, dsize_t size) {
 /* client functions */
 int
 aft_open(const char *host, uint16_t port) {
-    struct hostent *he;
-    struct sockaddr_in serv_addr = { 0 };
+    //struct hostent *he;
+    struct sockaddr_in serv_addr = { };
+	struct hostent* server;
     int fd;
     
-    if ((he = gethostbyname(host)) == NULL) {
+    /* resolve */
+    if ((server = gethostbyname(host)) == NULL || server->h_addr_list == NULL ||
+        server->h_addr_list[0] == NULL)
+    {
         lasterror = AFT_SYSERR_RESOLV;
         lastsyserror = errno;
         return AFT_ERROR;
     }
 
-    if (he == NULL || he->h_addr_list == NULL || he->h_addr_list[0] == NULL) {
-        lasterror = AFT_SYSERR_NOIP;
-        lastsyserror = errno;
-        return AFT_ERROR;
-    }
-
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(port);
-    serv_addr.sin_addr = *((struct in_addr*)he->h_addr_list[0]);
-
-    if ((fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
+    /* create socket */
+    if ((fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         lasterror = AFT_SYSERR_SOCKET;
         lastsyserror = errno;
         return AFT_ERROR;
     }
 
+    /* try connect */
+    int n = 0;
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_port = htons(port);
+    memcpy(&serv_addr.sin_addr.s_addr, server->h_addr_list[0], server->h_length);
+
     if (connect(fd, (struct sockaddr*)&serv_addr,
-        sizeof(struct in_addr)) == -1)
+        sizeof(struct sockaddr)) < 0)
     {
         lasterror = AFT_SYSERR_CONNECT;
         lastsyserror = errno;

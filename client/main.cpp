@@ -3,8 +3,6 @@
 
 #include <libarftransfer/arftransfer.h>
 
-constexpr uint16_t defaultPort = 8088;
-
 int main(int argc, char **argv) {
     cxxopts::Options options("arftransfer", "arftransfer: Simple, fast and secure file transfer program - arf20");
 
@@ -31,9 +29,9 @@ int main(int argc, char **argv) {
     }
 
     // Handle options
-    uint16_t iport = defaultPort;
+    uint16_t iport = 8088; // default port
     if (result.count("port"))
-        iport = result["port"].as<int>();
+        iport = std::stoi(result["port"].as<std::string>());
 
     if (result.count("host")) {
         if (aft_open(result["host"].as<std::string>().c_str(), iport) != AFT_OK) {
@@ -42,5 +40,5 @@ int main(int argc, char **argv) {
         }
     }
 
-    std::cout << "success" << std::endl;
+    
 }

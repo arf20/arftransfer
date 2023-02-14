@@ -3,6 +3,24 @@
 
 #include <libarftransfer/arftransfer.h>
 
+#define AFT_CHECK(x) if ((x) != AFT_OK) { std::cout << "Error: " << aft_get_last_error_str() << ": " << aft_get_last_sys_error_str() << std::endl; exit(1); }
+
+int connect(const std::string& host, uint16_t port) {
+    uint32_t addr;
+    char addrstr[256];
+    AFT_CHECK(aft_resolve(host.c_str(), &addr))
+    AFT_CHECK(aft_get_addr_str(addr, addrstr, 256))
+    std::cout << "Trying " << addrstr << "..." << std::endl;
+
+    int fd = 0;
+    if ((fd = aft_open(addr, port)) < 0) {
+        std::cout << "Error: " << aft_get_last_error_str() << ": " << aft_get_last_sys_error_str() << std::endl;
+        exit(1);
+    }
+
+    return fd;
+}
+
 int main(int argc, char **argv) {
     cxxopts::Options options("arftransfer", "arftransfer: Simple, fast and secure file transfer program - arf20");
 
@@ -33,8 +51,9 @@ int main(int argc, char **argv) {
     if (result.count("port"))
         iport = std::stoi(result["port"].as<std::string>());
 
+    int fd = 0;
     if (result.count("host")) {
-        if (aft_open(result["host"].as<std::string>().c_str(), iport) != AFT_OK) {
+        if ((fd = connect(result["host"].as<std::string>(), iport)) < 0) {
             std::cout << "Error: " << aft_get_last_error_str() << ": " << aft_get_last_sys_error_str() << std::endl;
             return 1;
         }

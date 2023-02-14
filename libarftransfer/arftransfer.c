@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <arpa/inet.h>
 #include <time.h>
 
 #include <zlib.h>
@@ -317,15 +318,11 @@ aft_send_cdata(int fd, const char *data, dsize_t size) {
     return aft_send_block(fd, AFT_TYPE_CDATA, databuf, zs.total_out);
 }
 
-/* client functions */
 int
-aft_open(const char *host, uint16_t port) {
-    //struct hostent *he;
+aft_resolve(const char *host, in_addr_t *addr) {
+    struct hostent* server;
     struct sockaddr_in serv_addr = { };
-	struct hostent* server;
-    int fd;
-    
-    /* resolve */
+
     if ((server = gethostbyname(host)) == NULL || server->h_addr_list == NULL ||
         server->h_addr_list[0] == NULL)
     {
@@ -334,6 +331,22 @@ aft_open(const char *host, uint16_t port) {
         return AFT_ERROR;
     }
 
+    memcpy(addr, server->h_addr_list[0], server->h_length);
+    return AFT_OK;
+}
+
+int
+aft_get_addr_str(in_addr_t addr, char *str, size_t strlen) {
+    return inet_ntop(AF_INET, &addr, str, strlen) != NULL ? AFT_OK : AFT_ERROR;
+}
+
+/* client functions */
+int
+aft_open(in_addr_t addr, uint16_t port) {
+    //struct hostent *he;
+    struct sockaddr_in serv_addr = { };
+    int fd;
+    
     /* create socket */
     if ((fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         lasterror = AFT_SYSERR_SOCKET;
@@ -345,7 +358,7 @@ aft_open(const char *host, uint16_t port) {
     int n = 0;
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(port);
-    memcpy(&serv_addr.sin_addr.s_addr, server->h_addr_list[0], server->h_length);
+    serv_addr.sin_addr.s_addr = addr;
 
     if (connect(fd, (struct sockaddr*)&serv_addr,
         sizeof(struct sockaddr)) < 0)
@@ -355,7 +368,18 @@ aft_open(const char *host, uint16_t port) {
         return AFT_ERROR;
     }
 
-    return AFT_OK;
+    return fd;
+}
+
+int
+aft_open_host(const char *host, uint16_t port) {
+    in_addr_t addr;
+    if (aft_resolve(host, &addr) != AFT_OK)
+        return AFT_ERROR;
+    int fd = 0;
+    if ((fd = aft_open(addr, port)) != AFT_OK)
+        return AFT_ERROR;
+    return fd;
 }
 
 int

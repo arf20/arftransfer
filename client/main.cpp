@@ -57,7 +57,20 @@ int main(int argc, char **argv) {
             std::cout << "Error: " << aft_get_last_error_str() << ": " << aft_get_last_sys_error_str() << std::endl;
             return 1;
         }
+    } else {
+        std::cout << "Host> ";
+        std::string host;
+        std::cin >> host;
+        std::cout << "Port> ";
+        uint16_t port;
+        std::cin >> port;
+
+        if ((fd = connect(host, port)) < 0) {
+            std::cout << "Error: " << aft_get_last_error_str() << ": " << aft_get_last_sys_error_str() << std::endl;
+            return 1;
+        }
     }
+
 
     
 }

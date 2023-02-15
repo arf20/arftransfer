@@ -42,7 +42,9 @@ const char *errorstr[] = {
     "Unable to connect",
     "Error receiving",
     "Error sending",
-    "Unexpected wrong block type received"
+    "Error closing",
+    "Unexpected wrong block type received",
+    "Incorrect login"
 };
 
 /* zlib stuff */
@@ -336,13 +338,23 @@ aft_resolve(const char *host, struct addrinfo **addrs) {
 }
 
 int
-aft_get_addr_str(const struct addrinfo *addr, char *str, size_t strlen) {
+aft_get_addr_str(const struct addrinfo *addr, char *str, size_t strlen,
+    int flags)
+{
     void *ptr;
     if (addr->ai_family == AF_INET)
         ptr = &((struct sockaddr_in *)addr->ai_addr)->sin_addr;
     else if (addr->ai_family == AF_INET6)
         ptr = &((struct sockaddr_in6 *)addr->ai_addr)->sin6_addr;
-    return inet_ntop(addr->ai_family, ptr, str, strlen) != NULL ? AFT_OK : AFT_ERROR;
+    
+    int r = inet_ntop(addr->ai_family, ptr, str, strlen) != NULL
+        ? AFT_OK : AFT_ERROR;
+    if (flags && (r != -1)) {
+        strcat(str, " (");
+        strcat(str, addr->ai_canonname);
+        strcat(str, ")");
+    }
+    return r;
 }
 
 /* client functions */
@@ -356,7 +368,7 @@ aft_open(const struct addrinfo *addr, uint16_t port) {
         lastsyserror = errno;
         return AFT_ERROR;
     }
-    
+
     if (addr->ai_family == AF_INET)
         ((struct sockaddr_in*)addr->ai_addr)->sin_port = htons(port);
     else if (addr->ai_family == AF_INET6)
@@ -396,7 +408,11 @@ aft_ping(int fd, struct timespec *rtt) {
     struct timespec end;
 
     /* send ping request */
-    aft_send_block(fd, AFT_TYPE_PING, NULL, 0);
+    if (aft_send_block(fd, AFT_TYPE_PING, NULL, 0) != AFT_OK) {
+        lasterror = AFT_SYSERR_SEND;
+        lastsyserror = errno;
+        return AFT_ERROR;
+    }
 
     /* wait for answer */
     clock_gettime(CLOCK_REALTIME, &start);

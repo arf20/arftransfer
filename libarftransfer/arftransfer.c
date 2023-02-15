@@ -319,50 +319,51 @@ aft_send_cdata(int fd, const char *data, dsize_t size) {
 }
 
 int
-aft_resolve(const char *host, in_addr_t *addr) {
-    struct hostent* server;
-    struct sockaddr_in serv_addr = { };
+aft_resolve(const char *host, struct addrinfo **addrs) {
+    struct addrinfo hints = { 0 };
 
-    if ((server = gethostbyname(host)) == NULL || server->h_addr_list == NULL ||
-        server->h_addr_list[0] == NULL)
-    {
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags |= AI_CANONNAME;
+
+    if (getaddrinfo(host, NULL, &hints, addrs) < 0) {
         lasterror = AFT_SYSERR_RESOLV;
         lastsyserror = errno;
         return AFT_ERROR;
     }
 
-    memcpy(addr, server->h_addr_list[0], server->h_length);
     return AFT_OK;
 }
 
 int
-aft_get_addr_str(in_addr_t addr, char *str, size_t strlen) {
-    return inet_ntop(AF_INET, &addr, str, strlen) != NULL ? AFT_OK : AFT_ERROR;
+aft_get_addr_str(const struct addrinfo *addr, char *str, size_t strlen) {
+    void *ptr;
+    if (addr->ai_family == AF_INET)
+        ptr = &((struct sockaddr_in *)addr->ai_addr)->sin_addr;
+    else if (addr->ai_family == AF_INET6)
+        ptr = &((struct sockaddr_in6 *)addr->ai_addr)->sin6_addr;
+    return inet_ntop(addr->ai_family, ptr, str, strlen) != NULL ? AFT_OK : AFT_ERROR;
 }
 
 /* client functions */
 int
-aft_open(in_addr_t addr, uint16_t port) {
-    //struct hostent *he;
-    struct sockaddr_in serv_addr = { };
+aft_open(const struct addrinfo *addr, uint16_t port) {
     int fd;
     
     /* create socket */
-    if ((fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+    if ((fd = socket(addr->ai_family, SOCK_STREAM, IPPROTO_TCP)) < 0) {
         lasterror = AFT_SYSERR_SOCKET;
         lastsyserror = errno;
         return AFT_ERROR;
     }
+    
+    if (addr->ai_family == AF_INET)
+        ((struct sockaddr_in*)addr->ai_addr)->sin_port = htons(port);
+    else if (addr->ai_family == AF_INET6)
+        ((struct sockaddr_in6*)addr->ai_addr)->sin6_port = htons(port);
 
     /* try connect */
-    int n = 0;
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(port);
-    serv_addr.sin_addr.s_addr = addr;
-
-    if (connect(fd, (struct sockaddr*)&serv_addr,
-        sizeof(struct sockaddr)) < 0)
-    {
+    if (connect(fd, addr->ai_addr, addr->ai_addrlen) < 0) {
         lasterror = AFT_SYSERR_CONNECT;
         lastsyserror = errno;
         return AFT_ERROR;
@@ -373,13 +374,19 @@ aft_open(in_addr_t addr, uint16_t port) {
 
 int
 aft_open_host(const char *host, uint16_t port) {
-    in_addr_t addr;
+    struct addrinfo *addr;
+
     if (aft_resolve(host, &addr) != AFT_OK)
         return AFT_ERROR;
+
     int fd = 0;
-    if ((fd = aft_open(addr, port)) != AFT_OK)
-        return AFT_ERROR;
-    return fd;
+    while (addr) {
+        if ((fd = aft_open(addr, port)) == AFT_OK)
+            return fd;
+        addr = addr->ai_next;
+    }
+
+    return AFT_ERROR;
 }
 
 int

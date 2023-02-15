@@ -7,6 +7,7 @@ extern "C" {
 
 #include <stdint.h>
 #include <sys/types.h>
+#include <netdb.h>
 #include <time.h>
 
 #define AFT_VER 0x13
@@ -145,9 +146,9 @@ int aft_close();
 int aft_send_data(int fd, const char *data, dsize_t size);
 int aft_send_cdata(int fd, const char *data, dsize_t size);
 /* Client functions */
-int aft_resolve(const char *host, uint32_t *addr);
-int aft_get_addr_str(uint32_t addr, char *str, size_t strlen);
-int aft_open(uint32_t addr, uint16_t port);
+int aft_resolve(const char *host, struct addrinfo **addrs);
+int aft_get_addr_str(const struct addrinfo *addr, char *str, size_t strlen);
+int aft_open(const struct addrinfo *addr, uint16_t port);
 int aft_open_host(const char *host, uint16_t port);
 int aft_ping(int fd, struct timespec *rtt);
 int aft_login(int fd, const char *user, const char *passwd);

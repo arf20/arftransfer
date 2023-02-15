@@ -6,19 +6,25 @@
 #define AFT_CHECK(x) if ((x) != AFT_OK) { std::cout << "Error: " << aft_get_last_error_str() << ": " << aft_get_last_sys_error_str() << std::endl; exit(1); }
 
 int connect(const std::string& host, uint16_t port) {
-    uint32_t addr;
+    struct addrinfo *addr, *p;
     char addrstr[256];
     AFT_CHECK(aft_resolve(host.c_str(), &addr))
-    AFT_CHECK(aft_get_addr_str(addr, addrstr, 256))
-    std::cout << "Trying " << addrstr << "..." << std::endl;
-
+    p = addr;
     int fd = 0;
-    if ((fd = aft_open(addr, port)) < 0) {
-        std::cout << "Error: " << aft_get_last_error_str() << ": " << aft_get_last_sys_error_str() << std::endl;
-        exit(1);
+
+    while (p) {
+        AFT_CHECK(aft_get_addr_str(p, addrstr, 256))
+        std::cout << "Trying " << addrstr << "..." << std::endl;
+
+        if ((fd = aft_open(p, port)) < 0) {
+            std::cout << "Error: " << aft_get_last_error_str() << ": " << aft_get_last_sys_error_str() << std::endl;
+        }
+        else return fd;
+
+        p = p->ai_next;
     }
 
-    return fd;
+    return -1;
 }
 
 int main(int argc, char **argv) {
@@ -54,7 +60,6 @@ int main(int argc, char **argv) {
     int fd = 0;
     if (result.count("host")) {
         if ((fd = connect(result["host"].as<std::string>(), iport)) < 0) {
-            std::cout << "Error: " << aft_get_last_error_str() << ": " << aft_get_last_sys_error_str() << std::endl;
             return 1;
         }
     } else {
@@ -66,7 +71,6 @@ int main(int argc, char **argv) {
         std::cin >> port;
 
         if ((fd = connect(host, port)) < 0) {
-            std::cout << "Error: " << aft_get_last_error_str() << ": " << aft_get_last_sys_error_str() << std::endl;
             return 1;
         }
     }

@@ -65,9 +65,8 @@ int main(int argc, char **argv) {
         if ((fd = connect(result["host"].as<std::string>(), iport)) < 0) {
             return 1;
         }
+        std::cout << "Connection established" << std::endl;
     }
-
-    std::cout << "Connection established" << std::endl;
 
     bool stopcli = false;
     std::string command;
@@ -75,7 +74,13 @@ int main(int argc, char **argv) {
         std::cout << "arftransfer> ";
         std::cin >> command;
 
-        if (command == "open") {
+        if (command == "help") {
+            std::cout << "\thelp\n\texit\n\topen\n\tping\n\tclose" << std::endl;
+        }
+        else if (command == "exit") {
+            return 0;
+        }
+        else if (command == "open") {
             std::cout << "Host> ";
             std::string host;
             std::cin >> host;
@@ -86,6 +91,8 @@ int main(int argc, char **argv) {
             if ((fd = connect(host, port)) < 0) {
                 return 1;
             }
+
+            std::cout << "Connection established" << std::endl;
         }
         else if (command == "ping") {
             CHECKFD

@@ -70,6 +70,7 @@ int main(int argc, char **argv) {
 
     bool stopcli = false;
     std::string command;
+
     while (!stopcli) {
         std::cout << "arftransfer> ";
         std::cin >> command;
@@ -98,13 +99,16 @@ int main(int argc, char **argv) {
             CHECKFD
             timespec rtt;
             AFT_CHECK_A(aft_ping(fd, &rtt), continue)
-            double millis = (rtt.tv_sec * 1000.0) + (rtt.tv_nsec / 1000.0);
+            double millis = 1000.0 * (rtt.tv_sec + (rtt.tv_nsec / 1000000000.0));
             std::cout << "Answer RTT: " << millis << "ms" << std::endl;
         }
         else if (command == "close") {
             CHECKFD
             aft_close(fd);
             fd = -1;
+        } 
+        else {
+            std::cout << "Invalid command" << std::endl;
         }
 
         command.clear();

@@ -128,6 +128,11 @@ enum {
     AFT_SYSERR_RECV,         /* Error receiving */
     AFT_SYSERR_SEND,         /* Error sending */
     AFT_SYSERR_CLOSE,        /* Error closing */
+
+    AFT_SYSERR_BIND,         /* Error binding socket */
+    AFT_SYSERR_LISTEN,       /* Error listening on socket */
+    AFT_SYSERR_ACCEPT,       /* Error accepting connection */
+
 /* Protocol errors */
     AFT_PERR_TYPE,           /* Unexpected wrong block type received */
 
@@ -152,6 +157,9 @@ int aft_open(const struct addrinfo *addr, uint16_t port);
 int aft_open_host(const char *host, uint16_t port);
 int aft_ping(int fd, struct timespec *rtt);
 int aft_login(int fd, const char *user, const char *passwd);
+/* Server functions */
+int aft_listen(struct addrinfo *addr, uint16_t port);
+int aft_accept();
 
 #ifdef __cplusplus
 }

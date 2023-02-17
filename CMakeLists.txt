@@ -15,20 +15,26 @@ file (GLOB LIB_SRC
     "libarftransfer/*.c"
 )
 
-add_library(arftransfer SHARED ${LIB_SRC})
+add_library(objlib OBJECT ${LIB_SRC})
+set_property(TARGET objlib PROPERTY POSITION_INDEPENDENT_CODE 1)
+
+add_library(arftransferstatic STATIC $<TARGET_OBJECTS:objlib>)
+target_link_libraries(arftransferstatic PRIVATE z)
+add_library(arftransfer SHARED $<TARGET_OBJECTS:objlib>)
+target_link_libraries(arftransfer PRIVATE z)
 
 # client
 file (GLOB CLIENT_SRC
     "client/*.cpp"
 )
 
-add_executable(arftransferc ${LIB_SRC} ${CLIENT_SRC})
-target_link_libraries(arftransferc PRIVATE Threads::Threads z)
+add_executable(arftransferc ${CLIENT_SRC})
+target_link_libraries(arftransferc PRIVATE Threads::Threads z arftransfer)
 
 # server
 file (GLOB SERVER_SRC
     "server/*.cpp"
 )
 
-add_executable(arftransferd ${LIB_SRC} ${SERVER_SRC})
-target_link_libraries(arftransferd PRIVATE Threads::Threads z)
+add_executable(arftransferd ${SERVER_SRC})
+target_link_libraries(arftransferd PRIVATE Threads::Threads z arftransfer)

@@ -84,7 +84,7 @@ int main(int argc, char **argv) {
             std::cout << "Host> ";
             std::string host;
             std::cin >> host;
-            std::cout << "Port [" << iport << "] >";
+            std::cout << "Port [" << iport << "]> ";
             uint16_t port = iport;
             std::cin >> port;
 

@@ -43,6 +43,9 @@ const char *errorstr[] = {
     "Error receiving",
     "Error sending",
     "Error closing",
+    "Error binding socket",
+    "Error listening on socket",
+    "Error accepting connection",
     "Unexpected wrong block type received",
     "Incorrect login"
 };
@@ -463,4 +466,40 @@ aft_login(int fd, const char *user, const char *passwd) {
     }
 
     return AFT_OK;
+}
+
+
+
+/* Server functions */
+
+int
+aft_listen(struct addrinfo *addr, uint16_t port) {
+    int fd = -1;
+    /* Create socket */
+    if ((fd = socket(addr->ai_family, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+        lasterror = AFT_SYSERR_SOCKET;
+        lastsyserror = errno;
+        return AFT_ERROR;
+    }
+
+    if (addr->ai_family == AF_INET)
+        ((struct sockaddr_in*)addr->ai_addr)->sin_port = htons(port);
+    else if (addr->ai_family == AF_INET6)
+        ((struct sockaddr_in6*)addr->ai_addr)->sin6_port = htons(port);
+
+    /* Bind socket */
+    if (bind(fd, addr->ai_addr, addr->ai_addrlen) < 0) {
+        lasterror = AFT_SYSERR_BIND;
+        lastsyserror = errno;
+        return AFT_ERROR;
+    }
+
+    /* Listen on socket */
+    if (listen(fd, SOMAXCONN) < 0) {
+        lasterror = AFT_SYSERR_LISTEN;
+        lastsyserror = errno;
+        return AFT_ERROR;
+    }
+
+    return fd;
 }

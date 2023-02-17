@@ -3,6 +3,7 @@
 #include <sstream>
 #include <vector>
 #include <thread>
+#include <chrono>
 
 #include "inireader.hpp"
 
@@ -16,26 +17,47 @@ std::vector<std::thread> acceptThreads;
 std::vector<std::thread> connectionThreads;
 
 // receive loop
-void receiveLoop(int fd) {
+void receiveLoop(int fd, const std::string& addr) {
+    block_t block;
+    while (true) {
+        int r = aft_recv_block(fd, &block);
+        if (r == AFT_ERROR) {
+            std::cout << "Error: " << aft_get_last_error_str() << ": " << aft_get_last_sys_error_str() << std::endl;
+            return;
+        } else if (r == 0) {
+            std::cout << "Connection from " << addr << " closed" << std::endl;
+            aft_close(fd);
+            return;
+        }
 
+        std::cout << "Block received from " << addr << ": ";
+
+        switch (block.header.type) {
+            case AFT_TYPE_PING: {
+                std::cout << "PING" << std::endl;
+                aft_send_block(fd, AFT_TYPE_PING, NULL, 0);
+            } break;
+        }
+    }
 }
 
 // accept loop
 void acceptLoop(int afd) {
     int cfd = -1;
     sockaddr sa;
-    socklen_t len;
+    socklen_t len = sizeof(sockaddr);
     char addrstr[256];
     while (true) {
+        len = sizeof(sockaddr);
         if ((cfd = aft_accept(afd, &sa, &len)) < 0) {
-            std::cout << "Error accepting: " << aft_get_last_error_str() << ": " << aft_get_last_sys_error_str() << std::endl;
+            std::cout << "Error: " << aft_get_last_error_str() << ": " << aft_get_last_sys_error_str() << std::endl;
             return;
         }
         
         AFT_CHECK(aft_get_sa_addr_str(&sa, addrstr, 256))
-        std::cout << "Connection accepted: " << addrstr << ":" << std::endl;
+        std::cout << "Connection accepted: " << addrstr << std::endl;
 
-        connectionThreads.push_back(std::thread(receiveLoop, cfd));
+        connectionThreads.push_back(std::thread(receiveLoop, cfd, std::string(addrstr)));
     }
 }
 
@@ -45,7 +67,7 @@ void createConfig(const std::string& path) {
         std::cout << "Error writing config file" << std::endl;
         exit(1);
     }
-    conffile << "# Sample config file\nport=8088\naddress=0.0.0.0,::\n";
+    conffile << "# Sample config file\nport=8088\naddress=0.0.0.0\n";
     conffile.close();
 
 }
@@ -68,6 +90,9 @@ int main() {
     std::string addrstr;
     while (std::getline(addressesss, addrstr, ','))
         addresses.push_back(addrstr);
+
+    // arftransfer init
+    aft_init();
 
     // Create listen sockets
     for (const std::string& addr : addresses) {
@@ -95,4 +120,6 @@ int main() {
 
     for (std::thread& t : acceptThreads)
         t.join();
+
+    std::cout << "end";
 }

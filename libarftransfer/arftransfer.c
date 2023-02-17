@@ -43,6 +43,7 @@ const char *errorstr[] = {
     "Error receiving",
     "Error sending",
     "Error closing",
+    "Connection closed by peer",
     "Error binding socket",
     "Error listening on socket",
     "Error accepting connection",
@@ -72,6 +73,7 @@ struct timespec diff_timespec(const struct timespec *time1,
 int
 aft_send_block(int fd, type_t type, const char *data, dsize_t size) {
     block_header_t *header = (block_header_t*)blockbuf;
+    header->version = AFT_VER;
     header->type = type;
     header->size = size;
     if (data != NULL)
@@ -105,21 +107,6 @@ aft_send_stat(int fd, stat_t stat, const char *data, dsize_t size) {
         size + sizeof(status_header_t));
 }
 
-
-
-int
-aft_recv_block(int fd, block_t *block) { // size or -1
-    if (recv(fd, blockbuf, AFT_MAX_BLOCK_SIZE, 0) < 0) {
-        lasterror = AFT_SYSERR_RECV;
-        lastsyserror = errno;
-        return AFT_ERROR;
-    }
-    block->header = *(block_header_t*)blockbuf;
-    block->data = blockbuf + sizeof(block_header_t);
-
-    return AFT_OK;
-}
-
 int
 aft_check_block(const block_t *block) {
     if (block->header.version != AFT_VER) {
@@ -140,6 +127,25 @@ aft_check_block(const block_t *block) {
     }
 
     return AFT_OK;
+}
+
+int
+aft_recv_block(int fd, block_t *block) {
+    int r = recv(fd, blockbuf, AFT_MAX_BLOCK_SIZE, 0);
+    if (r < 0) {
+        lasterror = AFT_SYSERR_RECV;
+        lastsyserror = errno;
+        return AFT_ERROR;
+    } else if (r == 0) {
+        return 0;
+    }
+    block->header = *(block_header_t*)blockbuf;
+    block->data = blockbuf + sizeof(block_header_t);
+
+    if (aft_check_block(block) != AFT_OK)
+        return AFT_ERROR;
+
+    return r;
 }
 
 int
@@ -180,6 +186,24 @@ aft_parse_cmd(const char *data, dsize_t bsize, command_t *command) {
     command->targ = (char*)data + sizeof(command_header_t);
 }
 
+int
+aft_recv_cmd(int fd, command_t *command) {
+    block_t cmdb = { 0 };
+
+    if (aft_recv_block(fd, &cmdb) != AFT_OK) {
+        lasterror = AFT_SYSERR_RECV;
+        lastsyserror = errno;
+        return AFT_ERROR;
+    }
+
+    if (cmdb.header.type != AFT_TYPE_CMD) {
+        lasterror = AFT_PERR_TYPE;
+        return AFT_ERROR;
+    }
+
+    aft_parse_cmd(cmdb.data, cmdb.header.size, command);
+}
+
 void
 aft_parse_stat(const char *data, dsize_t bsize, status_t *status) {
     status->header = *(status_header_t*)data;
@@ -193,10 +217,6 @@ aft_recv_stat(int fd, status_t *status) {
     if (aft_recv_block(fd, &statb) != AFT_OK) {
         lasterror = AFT_SYSERR_RECV;
         lastsyserror = errno;
-        return AFT_ERROR;
-    }
-
-    if (aft_check_block(&statb) != AFT_OK) {
         return AFT_ERROR;
     }
 
@@ -341,15 +361,15 @@ aft_resolve(const char *host, struct addrinfo **addrs) {
 }
 
 int
-aft_get_sa_addr_str(const struct sockaddr *addr, char *str, size_t strlen)
-{
+aft_get_sa_addr_str(const struct sockaddr *addr, char *str, size_t strlen) {
     void *ptr;
     if (addr->sa_family == AF_INET)
         ptr = &((struct sockaddr_in*)addr)->sin_addr;
     else if (addr->sa_family == AF_INET6)
         ptr = &((struct sockaddr_in6*)addr)->sin6_addr;
+    else return AFT_ERROR;
     
-    int r = inet_ntop(addr->sa_family, ptr, str, strlen) != NULL
+    int r = (inet_ntop(addr->sa_family, ptr, str, strlen) != NULL)
         ? AFT_OK : AFT_ERROR;
 
     return r;
@@ -365,9 +385,9 @@ aft_get_ai_addr_str(const struct addrinfo *addr, char *str, size_t strlen,
     else if (addr->ai_family == AF_INET6)
         ptr = &((struct sockaddr_in6*)addr->ai_addr)->sin6_addr;
     
-    int r = inet_ntop(addr->ai_family, ptr, str, strlen) != NULL
+    int r = (inet_ntop(addr->ai_family, ptr, str, strlen) != NULL)
         ? AFT_OK : AFT_ERROR;
-    if (flags && (r != -1)) {
+    if (flags && (r != -1) && addr->ai_canonname) {
         strcat(str, " (");
         strcat(str, addr->ai_canonname);
         strcat(str, ")");
@@ -434,9 +454,14 @@ aft_ping(int fd, struct timespec *rtt) {
 
     /* wait for answer */
     clock_gettime(CLOCK_REALTIME, &start);
-    if (aft_recv_block(fd, &echo) != AFT_OK) {
+    int r = aft_recv_block(fd, &echo);
+    if (r == AFT_ERROR) {
         lasterror = AFT_SYSERR_RECV;
         lastsyserror = errno;
+        return AFT_ERROR;
+    }
+    else if (r == 0) {
+        lasterror = AFT_SYSERR_CLOSED;
         return AFT_ERROR;
     }
     clock_gettime(CLOCK_REALTIME, &end);
@@ -521,5 +546,11 @@ aft_listen(struct addrinfo *addr, uint16_t port) {
 
 int
 aft_accept(int fd, struct sockaddr *sa, socklen_t *len) {
-    return accept(fd, sa, len);
+    int cfd = -1;
+    if ((cfd = accept(fd, sa, len)) < 0) {
+        lasterror = AFT_SYSERR_ACCEPT;
+        lastsyserror = errno;
+        return AFT_ERROR;
+    }
+    return cfd;
 }

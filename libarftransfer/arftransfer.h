@@ -128,6 +128,7 @@ enum {
     AFT_SYSERR_RECV,         /* Error receiving */
     AFT_SYSERR_SEND,         /* Error sending */
     AFT_SYSERR_CLOSE,        /* Error closing */
+    AFT_SYSERR_CLOSED,       /* Not an error, gracefully closed by peer */
 
     AFT_SYSERR_BIND,         /* Error binding socket */
     AFT_SYSERR_LISTEN,       /* Error listening on socket */
@@ -148,8 +149,10 @@ const char *aft_get_last_error_str();
 int aft_get_last_sys_error();
 const char* aft_get_last_sys_error_str();
 int aft_close(int fd);
+int aft_send_block(int fd, type_t type, const char *data, dsize_t size);
 int aft_send_data(int fd, const char *data, dsize_t size);
 int aft_send_cdata(int fd, const char *data, dsize_t size);
+int aft_recv_block(int fd, block_t *block);
 /* Client functions */
 int aft_resolve(const char *host, struct addrinfo **addrs);
 int aft_get_sa_addr_str(const struct sockaddr *addr, char *str, size_t strlen);
@@ -161,6 +164,7 @@ int aft_login(int fd, const char *user, const char *passwd);
 /* Server functions */
 int aft_listen(struct addrinfo *addr, uint16_t port);
 int aft_accept(int fd, struct sockaddr *sa, socklen_t *len);
+int aft_recv_cmd(int fd, command_t *command);
 
 #ifdef __cplusplus
 }

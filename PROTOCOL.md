@@ -1,5 +1,5 @@
 # AFT Protocol Specification - Version 1.3
-A file transfer protocol over TCP/IP. One single connection client -> server, optionally supports gzip compression and TLS encryption.
+A file transfer protocol over TCP/IP. One single connection client -> server, optionally supports gzip compression and TLS encryption. No checksum check because TCP already does it.
 
 ## 1. Block Header Definition
 

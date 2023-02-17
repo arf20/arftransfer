@@ -152,14 +152,15 @@ int aft_send_data(int fd, const char *data, dsize_t size);
 int aft_send_cdata(int fd, const char *data, dsize_t size);
 /* Client functions */
 int aft_resolve(const char *host, struct addrinfo **addrs);
-int aft_get_addr_str(const struct addrinfo *addr, char *str, size_t strlen, int flags);
+int aft_get_sa_addr_str(const struct sockaddr *addr, char *str, size_t strlen);
+int aft_get_ai_addr_str(const struct addrinfo *addr, char *str, size_t strlen, int flags);
 int aft_open(const struct addrinfo *addr, uint16_t port);
 int aft_open_host(const char *host, uint16_t port);
 int aft_ping(int fd, struct timespec *rtt);
 int aft_login(int fd, const char *user, const char *passwd);
 /* Server functions */
 int aft_listen(struct addrinfo *addr, uint16_t port);
-int aft_accept();
+int aft_accept(int fd, struct sockaddr *sa, socklen_t *len);
 
 #ifdef __cplusplus
 }

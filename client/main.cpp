@@ -13,10 +13,10 @@ int connect(const std::string& host, uint16_t port) {
     char addrstr[256];
     AFT_CHECK(aft_resolve(host.c_str(), &addr))
     p = addr;
-    int fd = 0;
+    int fd = -1;
 
     while (p) {
-        AFT_CHECK(aft_get_addr_str(p, addrstr, 256, 1))
+        AFT_CHECK(aft_get_ai_addr_str(p, addrstr, 256, 1))
         std::cout << "Trying " << addrstr << "..." << std::endl;
 
         if ((fd = aft_open(p, port)) < 0) {

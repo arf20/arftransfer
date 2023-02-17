@@ -341,14 +341,29 @@ aft_resolve(const char *host, struct addrinfo **addrs) {
 }
 
 int
-aft_get_addr_str(const struct addrinfo *addr, char *str, size_t strlen,
+aft_get_sa_addr_str(const struct sockaddr *addr, char *str, size_t strlen)
+{
+    void *ptr;
+    if (addr->sa_family == AF_INET)
+        ptr = &((struct sockaddr_in*)addr)->sin_addr;
+    else if (addr->sa_family == AF_INET6)
+        ptr = &((struct sockaddr_in6*)addr)->sin6_addr;
+    
+    int r = inet_ntop(addr->sa_family, ptr, str, strlen) != NULL
+        ? AFT_OK : AFT_ERROR;
+
+    return r;
+}
+
+int
+aft_get_ai_addr_str(const struct addrinfo *addr, char *str, size_t strlen,
     int flags)
 {
     void *ptr;
     if (addr->ai_family == AF_INET)
-        ptr = &((struct sockaddr_in *)addr->ai_addr)->sin_addr;
+        ptr = &((struct sockaddr_in*)addr->ai_addr)->sin_addr;
     else if (addr->ai_family == AF_INET6)
-        ptr = &((struct sockaddr_in6 *)addr->ai_addr)->sin6_addr;
+        ptr = &((struct sockaddr_in6*)addr->ai_addr)->sin6_addr;
     
     int r = inet_ntop(addr->ai_family, ptr, str, strlen) != NULL
         ? AFT_OK : AFT_ERROR;
@@ -502,4 +517,9 @@ aft_listen(struct addrinfo *addr, uint16_t port) {
     }
 
     return fd;
+}
+
+int
+aft_accept(int fd, struct sockaddr *sa, socklen_t *len) {
+    return accept(fd, sa, len);
 }

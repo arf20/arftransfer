@@ -33,6 +33,7 @@ target_link_libraries(arftransferc PRIVATE Threads::Threads z arftransfer)
 
 # server
 file (GLOB SERVER_SRC
+    "server/*.c"
     "server/*.cpp"
 )
 

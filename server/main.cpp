@@ -11,31 +11,36 @@
 
 #define AFT_CHECK(x) if ((x) != AFT_OK) { std::cout << "Error: " << aft_get_last_error_str() << ": " << aft_get_last_sys_error_str() << std::endl; }
 
+struct client {
+    int fd;
+    std::string addr;
+};
+
 const std::string conffname = "server.conf";
 
 std::vector<std::thread> acceptThreads;
-std::vector<std::thread> connectionThreads;
+std::vector<client> clients;
 
 // receive loop
-void receiveLoop(int fd, const std::string& addr) {
+void receiveLoop(client c) {
     block_t block;
     while (true) {
-        int r = aft_recv_block(fd, &block);
+        int r = aft_recv_block(c.fd, &block);
         if (r == AFT_ERROR) {
             std::cout << "Error: " << aft_get_last_error_str() << ": " << aft_get_last_sys_error_str() << std::endl;
             return;
         } else if (r == 0) {
-            std::cout << "Connection from " << addr << " closed" << std::endl;
-            aft_close(fd);
+            std::cout << "Connection from " << c.addr << " closed" << std::endl;
+            aft_close(c.fd);
             return;
         }
 
-        std::cout << "Block received from " << addr << ": ";
+        std::cout << "Block received from " << c.addr << ": ";
 
         switch (block.header.type) {
             case AFT_TYPE_PING: {
                 std::cout << "PING" << std::endl;
-                aft_send_block(fd, AFT_TYPE_PING, NULL, 0);
+                aft_send_block(c.fd, AFT_TYPE_PING, NULL, 0);
             } break;
         }
     }
@@ -57,7 +62,13 @@ void acceptLoop(int afd) {
         AFT_CHECK(aft_get_sa_addr_str(&sa, addrstr, 256))
         std::cout << "Connection accepted: " << addrstr << std::endl;
 
-        connectionThreads.push_back(std::thread(receiveLoop, cfd, std::string(addrstr)));
+        client c;
+        c.fd = cfd;
+        c.addr = std::string(addrstr);
+        std::thread t(receiveLoop, c);
+        t.detach();
+
+        clients.push_back(c);
     }
 }
 

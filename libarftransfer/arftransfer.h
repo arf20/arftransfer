@@ -61,7 +61,7 @@ typedef struct block_header_s {
     type_t type;
     ver_t version;
     dsize_t size;
-} block_header_t;
+} __attribute__((packed)) block_header_t;
 
 typedef struct block_s {
     block_header_t header;
@@ -72,7 +72,7 @@ typedef struct command_header_s {
     cmd_t cmd;
     dsize_t size;
     uint8_t zero;   /* reserved */
-} command_header_t;
+} __attribute__((packed)) command_header_t;
 
 typedef struct command_s {
     command_header_t header;
@@ -83,7 +83,7 @@ typedef struct status_header_s {
     stat_t stat;
     dsize_t size;
     uint8_t zero;   /* reserved */
-} status_header_t;
+} __attribute__((packed)) status_header_t;
 
 typedef struct status_s {
     status_header_t header;
@@ -97,7 +97,7 @@ typedef struct dir_entry_s {
     size_t size;    /* uint64_t */
     time_t mtime;   /* uint64_t */
     char name[256]; /* last char is NUL */
-} dir_entry_t;
+} __attribute__((packed)) dir_entry_t;
 
 typedef struct dir_s {
     dir_entry_t *entries;
@@ -136,6 +136,10 @@ enum {
 
 /* Protocol errors */
     AFT_PERR_TYPE,           /* Unexpected wrong block type received */
+    AFT_PERR_STAT,           /* Unexpected wrong status received */
+
+/* Implementation errors */
+    AFT_IERR_BSIZE,          /* Buffer size too small */
 
 /* Normal errors */
     AFT_ERR_LOGIN            /* Incorrect login */
@@ -160,11 +164,15 @@ int aft_get_ai_addr_str(const struct addrinfo *addr, char *str, size_t strlen, i
 int aft_open(const struct addrinfo *addr, uint16_t port);
 int aft_open_host(const char *host, uint16_t port);
 int aft_ping(int fd, struct timespec *rtt);
+int aft_pwd(int fd, char *pwd, int len);
 int aft_login(int fd, const char *user, const char *passwd);
 /* Server functions */
 int aft_listen(struct addrinfo *addr, uint16_t port);
 int aft_accept(int fd, struct sockaddr *sa, socklen_t *len);
+void aft_parse_cmd(const uint8_t *data, dsize_t bsize, command_t *command);
+int aft_check_cmd(const command_t *command);
 int aft_recv_cmd(int fd, command_t *command);
+int aft_send_stat(int fd, stat_t stat, const char *data, dsize_t size);
 
 #ifdef __cplusplus
 }

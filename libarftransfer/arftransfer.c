@@ -48,6 +48,8 @@ const char *errorstr[] = {
     "Error listening on socket",
     "Error accepting connection",
     "Unexpected wrong block type received",
+    "Unexpected wrong status received",
+    "Buffer size too small",
     "Incorrect login"
 };
 
@@ -181,51 +183,15 @@ aft_inflate_cdatab(const block_t *cdatab, block_t *datab) {
 }
 
 void
-aft_parse_cmd(const char *data, dsize_t bsize, command_t *command) {
+aft_parse_cmd(const uint8_t *data, dsize_t bsize, command_t *command) {
     command->header = *(command_header_t*)data;
-    command->targ = (char*)data + sizeof(command_header_t);
-}
-
-int
-aft_recv_cmd(int fd, command_t *command) {
-    block_t cmdb = { 0 };
-
-    if (aft_recv_block(fd, &cmdb) != AFT_OK) {
-        lasterror = AFT_SYSERR_RECV;
-        lastsyserror = errno;
-        return AFT_ERROR;
-    }
-
-    if (cmdb.header.type != AFT_TYPE_CMD) {
-        lasterror = AFT_PERR_TYPE;
-        return AFT_ERROR;
-    }
-
-    aft_parse_cmd(cmdb.data, cmdb.header.size, command);
+    command->targ = (uint8_t*)data + sizeof(command_header_t);
 }
 
 void
 aft_parse_stat(const char *data, dsize_t bsize, status_t *status) {
     status->header = *(status_header_t*)data;
     status->sdata = (char*)data + sizeof(status_header_t);
-}
-
-int
-aft_recv_stat(int fd, status_t *status) {
-    block_t statb = { 0 };
-
-    if (aft_recv_block(fd, &statb) != AFT_OK) {
-        lasterror = AFT_SYSERR_RECV;
-        lastsyserror = errno;
-        return AFT_ERROR;
-    }
-
-    if (statb.header.type != AFT_TYPE_STAT) {
-        lasterror = AFT_PERR_TYPE;
-        return AFT_ERROR;
-    }
-
-    aft_parse_stat(statb.data, statb.header.size, status);
 }
 
 int
@@ -247,6 +213,44 @@ aft_check_stat(const status_t *command) {
         lasterror = AFT_SPERR_STAT;
         return AFT_ERROR;
     }
+    return AFT_OK;
+}
+
+int
+aft_recv_cmd(int fd, command_t *command) {
+    block_t cmdb = { 0 };
+
+    if (aft_recv_block(fd, &cmdb) < 0)
+        return AFT_ERROR;
+
+    if (cmdb.header.type != AFT_TYPE_CMD) {
+        lasterror = AFT_PERR_TYPE;
+        return AFT_ERROR;
+    }
+
+    aft_parse_cmd(cmdb.data, cmdb.header.size, command);
+
+    if (aft_check_cmd(command) != AFT_OK)
+        return AFT_ERROR;
+}
+
+int
+aft_recv_stat(int fd, status_t *status) {
+    block_t statb = { 0 };
+
+    if (aft_recv_block(fd, &statb) < 0)
+        return AFT_ERROR;
+
+    if (statb.header.type != AFT_TYPE_STAT) {
+        lasterror = AFT_PERR_TYPE;
+        return AFT_ERROR;
+    }
+
+    aft_parse_stat(statb.data, statb.header.size, status);
+
+    if (aft_check_stat(status) != AFT_OK)
+        return AFT_ERROR;
+
     return AFT_OK;
 }
 
@@ -474,6 +478,37 @@ aft_ping(int fd, struct timespec *rtt) {
     }
 
     *rtt = diff_timespec(&end, &start);
+    return AFT_OK;
+}
+
+int
+aft_pwd(int fd, char *pwd, int len) {
+    status_t status;
+
+    /* send pwd cmd */
+    if (aft_send_cmd(fd, AFT_CMD_PWD, NULL, 0) != AFT_OK) {
+        lasterror = AFT_SYSERR_SEND;
+        lastsyserror = errno;
+        return AFT_ERROR;
+    }
+
+    if (aft_recv_stat(fd, &status) < 0) {
+        return AFT_ERROR;
+    }
+
+    if (status.header.stat != AFT_STAT_PWDD) {
+        lasterror = AFT_PERR_STAT;
+        return AFT_ERROR;
+    }
+
+    if (status.header.size > len) {
+        lasterror = AFT_IERR_BSIZE;
+        return AFT_ERROR;
+    }
+    
+    strncpy(pwd, status.sdata, status.header.size);
+    pwd[status.header.size] = '\0';
+
     return AFT_OK;
 }
 

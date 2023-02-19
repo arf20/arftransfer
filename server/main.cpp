@@ -14,6 +14,7 @@
 struct client {
     int fd;
     std::string addr;
+    std::string pwd;
 };
 
 const std::string conffname = "server.conf";
@@ -21,9 +22,23 @@ const std::string conffname = "server.conf";
 std::vector<std::thread> acceptThreads;
 std::vector<client> clients;
 
+std::vector<std::string> directories;
+
+void handleCommand(const client& c, const command_t& cmd) {
+    switch (cmd.header.cmd) {
+        case AFT_CMD_NC: break;
+        case AFT_CMD_PWD: {
+            std::cout << "PWD" << std::endl;
+            aft_send_stat(c.fd, AFT_STAT_PWDD, c.pwd.c_str(), c.pwd.length());
+        } break;
+    }
+}
+
 // receive loop
 void receiveLoop(client c) {
     block_t block;
+    command_t cmd;
+
     while (true) {
         int r = aft_recv_block(c.fd, &block);
         if (r == AFT_ERROR) {
@@ -41,6 +56,12 @@ void receiveLoop(client c) {
             case AFT_TYPE_PING: {
                 std::cout << "PING" << std::endl;
                 aft_send_block(c.fd, AFT_TYPE_PING, NULL, 0);
+            } break;
+            case AFT_TYPE_CMD: {
+                std::cout << "CMD: ";
+                aft_parse_cmd(block.data, block.header.size, &cmd);
+                AFT_CHECK(aft_check_cmd(&cmd))
+                handleCommand(c, cmd);
             } break;
         }
     }
@@ -65,6 +86,7 @@ void acceptLoop(int afd) {
         client c;
         c.fd = cfd;
         c.addr = std::string(addrstr);
+        c.pwd = "/";
         std::thread t(receiveLoop, c);
         t.detach();
 
@@ -78,7 +100,7 @@ void createConfig(const std::string& path) {
         std::cout << "Error writing config file" << std::endl;
         exit(1);
     }
-    conffile << "# Sample config file\nport=8088\naddress=0.0.0.0\n";
+    conffile << "# Sample config file\nport=8088\naddress=0.0.0.0\nroot=/srv";
     conffile.close();
 
 }

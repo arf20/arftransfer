@@ -102,6 +102,12 @@ int main(int argc, char **argv) {
             double millis = 1000.0 * (rtt.tv_sec + (rtt.tv_nsec / 1000000000.0));
             std::cout << "Answer RTT: " << millis << "ms" << std::endl;
         }
+        else if (command == "pwd") {
+            CHECKFD
+            char pwd[256];
+            AFT_CHECK_A(aft_pwd(fd, pwd, 256), continue)
+            std::cout << pwd << std::endl;
+        }
         else if (command == "close") {
             CHECKFD
             aft_close(fd);

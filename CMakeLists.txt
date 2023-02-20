@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.10)
 project(arftransfer)
 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 

@@ -51,6 +51,11 @@ const char *errorstr[] = {
     "Unexpected wrong status received",
     "Buffer size too small",
     "Incorrect login"
+    "Incorrect login",
+    "Directory does not exist",
+    "File does not exist",
+    "Permission denied",
+    "System error in server"
 };
 
 /* zlib stuff */
@@ -139,7 +144,9 @@ aft_recv_block(int fd, block_t *block) {
         lastsyserror = errno;
         return AFT_ERROR;
     } else if (r == 0) {
-        return 0;
+        lasterror = AFT_SYSERR_CLOSED;
+        lastsyserror = errno;
+        return AFT_ERROR;
     }
     block->header = *(block_header_t*)blockbuf;
     block->data = blockbuf + sizeof(block_header_t);
@@ -147,7 +154,7 @@ aft_recv_block(int fd, block_t *block) {
     if (aft_check_block(block) != AFT_OK)
         return AFT_ERROR;
 
-    return r;
+    return AFT_OK;
 }
 
 int
@@ -220,7 +227,7 @@ int
 aft_recv_cmd(int fd, command_t *command) {
     block_t cmdb = { 0 };
 
-    if (aft_recv_block(fd, &cmdb) < 0)
+    if (aft_recv_block(fd, &cmdb) != AFT_OK)
         return AFT_ERROR;
 
     if (cmdb.header.type != AFT_TYPE_CMD) {
@@ -238,7 +245,7 @@ int
 aft_recv_stat(int fd, status_t *status) {
     block_t statb = { 0 };
 
-    if (aft_recv_block(fd, &statb) < 0)
+    if (aft_recv_block(fd, &statb) != AFT_OK)
         return AFT_ERROR;
 
     if (statb.header.type != AFT_TYPE_STAT) {
@@ -458,16 +465,8 @@ aft_ping(int fd, struct timespec *rtt) {
 
     /* wait for answer */
     clock_gettime(CLOCK_REALTIME, &start);
-    int r = aft_recv_block(fd, &echo);
-    if (r == AFT_ERROR) {
-        lasterror = AFT_SYSERR_RECV;
-        lastsyserror = errno;
+    if (aft_recv_block(fd, &echo) != AFT_OK)
         return AFT_ERROR;
-    }
-    else if (r == 0) {
-        lasterror = AFT_SYSERR_CLOSED;
-        return AFT_ERROR;
-    }
     clock_gettime(CLOCK_REALTIME, &end);
 
     aft_check_block(&echo);
@@ -492,9 +491,9 @@ aft_pwd(int fd, char *pwd, int len) {
         return AFT_ERROR;
     }
 
-    if (aft_recv_stat(fd, &status) < 0) {
+    /* recv pwd string */
+    if (aft_recv_stat(fd, &status) != AFT_OK)
         return AFT_ERROR;
-    }
 
     if (status.header.stat != AFT_STAT_PWDD) {
         lasterror = AFT_PERR_STAT;
@@ -508,6 +507,32 @@ aft_pwd(int fd, char *pwd, int len) {
     
     strncpy(pwd, status.sdata, status.header.size);
     pwd[status.header.size] = '\0';
+
+    return AFT_OK;
+}
+
+int
+aft_cd(int fd, const char *dir) {
+    status_t status;
+
+    /* send cd cmd */
+    if (aft_send_cmd(fd, AFT_CMD_CD, dir, strlen(dir)) != AFT_OK) {
+        lasterror = AFT_SYSERR_SEND;
+        lastsyserror = errno;
+        return AFT_ERROR;
+    }
+
+    /* recv ack */
+    if (aft_recv_stat(fd, &status) != AFT_OK)
+        return AFT_ERROR;
+
+    if (status.header.stat != AFT_STAT_ACK) {
+        if (status.header.stat == AFT_STAT_ENODIR)
+            lasterror = AFT_ERR_NODIR;
+        else if (status.header.stat == AFT_STAT_EACCESS)
+            lasterror = AFT_ERR_ACCESS;
+        return AFT_ERROR;
+    }
 
     return AFT_OK;
 }

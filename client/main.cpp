@@ -3,8 +3,8 @@
 
 #include <libarftransfer/arftransfer.h>
 
-#define AFT_CHECK(x) if ((x) != AFT_OK) { std::cout << "Error: " << aft_get_last_error_str() << ": " << aft_get_last_sys_error_str() << std::endl; }
-#define AFT_CHECK_A(x, a) if ((x) != AFT_OK) { std::cout << "Error: " << aft_get_last_error_str() << ": " << aft_get_last_sys_error_str() << std::endl; a; }
+#define AFT_CHECK(x) if ((x) != AFT_OK) { std::cout << "Error: " << aft_get_last_error_str(); if (aft_get_last_error() >= AFT_SYSERR_SOCKET && aft_get_last_error() <= AFT_SYSERR_ACCEPT) { std::cout << ": " << aft_get_last_sys_error_str(); } std::cout << std::endl; }
+#define AFT_CHECK_A(x, a) if ((x) != AFT_OK) { std::cout << "Error: " << aft_get_last_error_str(); if (aft_get_last_error() >= AFT_SYSERR_SOCKET && aft_get_last_error() <= AFT_SYSERR_ACCEPT) { std::cout << ": " << aft_get_last_sys_error_str(); } std::cout << std::endl; a; }
 
 #define CHECKFD if (fd == -1) { std::cout << "Not connected" << std::endl; continue; }
 
@@ -70,6 +70,7 @@ int main(int argc, char **argv) {
 
     bool stopcli = false;
     std::string command;
+    std::string arg;
 
     while (!stopcli) {
         std::cout << "arftransfer> ";
@@ -107,6 +108,10 @@ int main(int argc, char **argv) {
             char pwd[256];
             AFT_CHECK_A(aft_pwd(fd, pwd, 256), continue)
             std::cout << pwd << std::endl;
+        }
+        else if (command == "cd") {
+            std::cin >> arg;
+            AFT_CHECK_A(aft_cd(fd, arg.c_str()), continue)
         }
         else if (command == "close") {
             CHECKFD

@@ -2,14 +2,17 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <list>
 #include <thread>
 #include <chrono>
+#include <filesystem>
 
 #include "inireader.hpp"
 
 #include <libarftransfer/arftransfer.h>
 
-#define AFT_CHECK(x) if ((x) != AFT_OK) { std::cout << "Error: " << aft_get_last_error_str() << ": " << aft_get_last_sys_error_str() << std::endl; }
+#define AFT_CHECK(x) if ((x) != AFT_OK) { std::cout << "Error: " << aft_get_last_error_str(); if (aft_get_last_error() >= AFT_SYSERR_SOCKET && aft_get_last_error() <= AFT_SYSERR_ACCEPT) { std::cout << ": " << aft_get_last_sys_error_str(); } std::cout << std::endl; }
+#define AFT_CHECK_A(x, a) if ((x) != AFT_OK) { std::cout << "Error: " << aft_get_last_error_str(); if (aft_get_last_error() >= AFT_SYSERR_SOCKET && aft_get_last_error() <= AFT_SYSERR_ACCEPT) { std::cout << ": " << aft_get_last_sys_error_str(); } std::cout << std::endl; a; }
 
 struct client {
     int fd;
@@ -19,34 +22,58 @@ struct client {
 
 const std::string conffname = "server.conf";
 
-std::vector<std::thread> acceptThreads;
-std::vector<client> clients;
+std::list<std::thread> acceptThreads;
+std::list<client> clients;
 
 std::vector<std::string> directories;
 
-void handleCommand(const client& c, const command_t& cmd) {
+bool handleCommand(client& c, const command_t& cmd) {
+    char args[256];
     switch (cmd.header.cmd) {
         case AFT_CMD_NC: break;
         case AFT_CMD_PWD: {
             std::cout << "PWD" << std::endl;
-            aft_send_stat(c.fd, AFT_STAT_PWDD, c.pwd.c_str(), c.pwd.length());
+            AFT_CHECK_A(aft_send_stat(c.fd, AFT_STAT_PWDD, c.pwd.c_str(), c.pwd.length()), return false)
+        } break;
+        case AFT_CMD_CD: {
+            std::copy(cmd.targ, cmd.targ + cmd.header.size, args);
+            args[cmd.header.size] = '\0';
+            std::cout << "CD " << args << ": ";
+
+            std::string npwd;
+            if (args[0] == '/') npwd = std::string(args);
+            else if (c.pwd == "/") npwd = "/" + std::string(args);
+            else npwd = c.pwd + "/" + std::string(args);
+
+            if (!(std::filesystem::exists(npwd) && std::filesystem::is_directory(npwd))) {
+                std::cout << npwd << " ENODIR" << std::endl;
+                AFT_CHECK_A(aft_send_stat(c.fd, AFT_STAT_ENODIR, NULL, 0), return false)
+            }
+            else {
+                c.pwd = npwd;
+                std::cout << npwd << " ACK" << std::endl;
+                AFT_CHECK_A(aft_send_stat(c.fd, AFT_STAT_ACK, NULL, 0), return false)
+            }
         } break;
     }
+
+    return true;
 }
 
 // receive loop
-void receiveLoop(client c) {
+void receiveLoop(std::list<client>::iterator cit) {
+    client& c = *cit;
     block_t block;
     command_t cmd;
 
     while (true) {
-        int r = aft_recv_block(c.fd, &block);
-        if (r == AFT_ERROR) {
-            std::cout << "Error: " << aft_get_last_error_str() << ": " << aft_get_last_sys_error_str() << std::endl;
-            return;
-        } else if (r == 0) {
-            std::cout << "Connection from " << c.addr << " closed" << std::endl;
+        if (aft_recv_block(c.fd, &block) != AFT_OK) {
+            if (aft_get_last_error() != AFT_SYSERR_CLOSED)
+                std::cout << "Error: " << aft_get_last_error_str() << ": " << aft_get_last_sys_error_str() << std::endl;
+            else
+                std::cout << "Connection from " << c.addr << " closed" << std::endl;
             aft_close(c.fd);
+            clients.erase(cit);
             return;
         }
 
@@ -61,7 +88,11 @@ void receiveLoop(client c) {
                 std::cout << "CMD: ";
                 aft_parse_cmd(block.data, block.header.size, &cmd);
                 AFT_CHECK(aft_check_cmd(&cmd))
-                handleCommand(c, cmd);
+                if (!handleCommand(c, cmd)) {
+                    aft_close(c.fd);
+                    clients.erase(cit);
+                    return;
+                }
             } break;
         }
     }
@@ -87,10 +118,11 @@ void acceptLoop(int afd) {
         c.fd = cfd;
         c.addr = std::string(addrstr);
         c.pwd = "/";
-        std::thread t(receiveLoop, c);
-        t.detach();
 
         clients.push_back(c);
+
+        std::thread t(receiveLoop, --clients.end());
+        t.detach();
     }
 }
 
@@ -153,6 +185,4 @@ int main() {
 
     for (std::thread& t : acceptThreads)
         t.join();
-
-    std::cout << "end";
 }

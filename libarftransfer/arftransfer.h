@@ -142,7 +142,11 @@ enum {
     AFT_IERR_BSIZE,          /* Buffer size too small */
 
 /* Normal errors */
-    AFT_ERR_LOGIN            /* Incorrect login */
+    AFT_ERR_LOGIN,           /* Incorrect login */
+    AFT_ERR_NODIR,           /* Directory does not exist */
+    AFT_ERR_NOFILE,          /* File does not exist */
+    AFT_ERR_ACCESS,          /* Permission denied */
+    AFT_ERR_SRVSYS           /* System error in server */
 };
 
 /* Exports */
@@ -165,6 +169,7 @@ int aft_open(const struct addrinfo *addr, uint16_t port);
 int aft_open_host(const char *host, uint16_t port);
 int aft_ping(int fd, struct timespec *rtt);
 int aft_pwd(int fd, char *pwd, int len);
+int aft_cd(int fd, const char *dir);
 int aft_login(int fd, const char *user, const char *passwd);
 /* Server functions */
 int aft_listen(struct addrinfo *addr, uint16_t port);

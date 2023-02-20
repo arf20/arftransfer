@@ -538,6 +538,32 @@ aft_cd(int fd, const char *dir) {
 }
 
 int
+aft_ls(int fd, dir_t *dir, size_t dirlen) {
+    status_t status;
+
+    /* send cd cmd */
+    if (aft_send_cmd(fd, AFT_CMD_LS, NULL, 0) != AFT_OK) {
+        lasterror = AFT_SYSERR_SEND;
+        lastsyserror = errno;
+        return AFT_ERROR;
+    }
+
+    /* recv lsd */
+    if (aft_recv_stat(fd, &status) != AFT_OK)
+        return AFT_ERROR;
+
+    if (dirlen < status.header.size)
+        return AFT_IERR_BSIZE;
+
+    memcpy(dir->entries, status.sdata, status.header.size);
+
+    dir->count = status.header.size / sizeof(dir_entry_t);
+    
+    return AFT_OK;
+}
+
+
+int
 aft_login(int fd, const char *user, const char *passwd) {
     size_t userlen = strlen(user) + 1;
     size_t passwdlen = strlen(user) + 1;

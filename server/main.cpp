@@ -7,6 +7,9 @@
 #include <chrono>
 #include <filesystem>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+
 #include "inireader.hpp"
 
 #include <libarftransfer/arftransfer.h>
@@ -54,6 +57,37 @@ bool handleCommand(client& c, const command_t& cmd) {
                 std::cout << npwd << " ACK" << std::endl;
                 AFT_CHECK_A(aft_send_stat(c.fd, AFT_STAT_ACK, NULL, 0), return false)
             }
+        } break;
+        case AFT_CMD_LS: {
+            std::cout << "LS " << ": ";
+
+            int i = 0;
+            for (const auto& file : std::filesystem::directory_iterator(c.pwd))
+                i++;
+
+            dir_entry_t *dir = new dir_entry_t[i];
+            struct stat sb;
+
+            i = 0;
+            for (const auto& file : std::filesystem::directory_iterator(c.pwd)) {
+                std::string fname = file.path().filename().generic_string();
+                lstat(file.path().c_str(), &sb);
+
+                dir[i].mode = sb.st_mode;
+                dir[i].uid = sb.st_uid;
+                dir[i].gid = sb.st_gid;
+                dir[i].size = sb.st_size;
+                dir[i].mtime = sb.st_mtim.tv_sec;
+                
+                std::copy(fname.c_str(), fname.c_str() + fname.length(), dir[i].name);
+
+                i++;
+            }
+
+            std::cout << "LSD " << c.pwd << " " << i << " entries" << std::endl;
+            AFT_CHECK_A(aft_send_stat(c.fd, AFT_STAT_LSD, (char*)dir, sizeof(dir_entry_t) * i), return false)
+
+            delete[] dir;
         } break;
     }
 

@@ -1,4 +1,8 @@
 #include <iostream>
+#include <iomanip>
+
+#include <sys/stat.h>
+
 #include <cxxopts.hpp>
 
 #include <libarftransfer/arftransfer.h>
@@ -112,6 +116,31 @@ int main(int argc, char **argv) {
         else if (command == "cd") {
             std::cin >> arg;
             AFT_CHECK_A(aft_cd(fd, arg.c_str()), continue)
+        }
+        else if (command == "ls") {
+            dir_t dir;
+            dir_entry_t dirdata[256];
+            dir.entries = dirdata;
+            AFT_CHECK_A(aft_ls(fd, &dir, sizeof(dir_entry_t) * 256), continue);
+
+            for (int i = 0; i < dir.count; i++) {
+                std::tm* tm = std::localtime(&dirdata[i].mtime);
+
+                std::cout << (S_ISDIR(dirdata[i].mode) ? "d" : "-")
+                << ((dirdata[i].mode & S_IRUSR) ? "r" : "-")
+                << ((dirdata[i].mode & S_IWUSR) ? "w" : "-")
+                << ((dirdata[i].mode & S_IXUSR) ? "x" : "-")
+                << ((dirdata[i].mode & S_IRGRP) ? "r" : "-")
+                << ((dirdata[i].mode & S_IWGRP) ? "w" : "-")
+                << ((dirdata[i].mode & S_IXGRP) ? "x" : "-")
+                << ((dirdata[i].mode & S_IROTH) ? "r" : "-")
+                << ((dirdata[i].mode & S_IWOTH) ? "w" : "-")
+                << ((dirdata[i].mode & S_IXOTH) ? "x" : "-")
+                << "\t" << dirdata[i].uid << "\t" << dirdata[i].gid
+                << "\t" << dirdata[i].size
+                << "\t" << std::put_time(tm, "%b %d %Y %H:%M")
+                << "\t" << dirdata[i].name << std::endl;
+            }
         }
         else if (command == "close") {
             CHECKFD

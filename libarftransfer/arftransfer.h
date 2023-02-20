@@ -170,6 +170,7 @@ int aft_open_host(const char *host, uint16_t port);
 int aft_ping(int fd, struct timespec *rtt);
 int aft_pwd(int fd, char *pwd, int len);
 int aft_cd(int fd, const char *dir);
+int aft_ls(int fd, dir_t *dir, size_t dirlen);
 int aft_login(int fd, const char *user, const char *passwd);
 /* Server functions */
 int aft_listen(struct addrinfo *addr, uint16_t port);

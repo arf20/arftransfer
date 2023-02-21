@@ -59,7 +59,6 @@ bool handleCommand(client& c, const command_t& cmd) {
             }
         } break;
         case AFT_CMD_LS: {
-            std::cout << "LS " << ": ";
 
             int i = 0;
             for (const auto& file : std::filesystem::directory_iterator(c.pwd))
@@ -80,14 +79,22 @@ bool handleCommand(client& c, const command_t& cmd) {
                 dir[i].mtime = sb.st_mtim.tv_sec;
                 
                 std::copy(fname.c_str(), fname.c_str() + fname.length(), dir[i].name);
+                dir[i].name[fname.length()] = '\0';
 
                 i++;
             }
 
-            std::cout << "LSD " << c.pwd << " " << i << " entries" << std::endl;
+            std::cout << "LS: LSD " << c.pwd << " " << i << " entries" << std::endl;
             AFT_CHECK_A(aft_send_stat(c.fd, AFT_STAT_LSD, (char*)dir, sizeof(dir_entry_t) * i), return false)
 
             delete[] dir;
+        } break;
+        case AFT_CMD_LOGIN: {
+            std::string user = std::string((char*)cmd.targ);
+            std::string passwd = std::string((char*)(cmd.targ + user.length() + 1));
+            std::cout << "LOGIN " << user << " " << passwd << std::endl;
+
+            AFT_CHECK_A(aft_send_stat(c.fd, AFT_STAT_ELOGIN, NULL, 0), return false)
         } break;
     }
 

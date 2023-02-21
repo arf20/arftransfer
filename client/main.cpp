@@ -114,10 +114,12 @@ int main(int argc, char **argv) {
             std::cout << pwd << std::endl;
         }
         else if (command == "cd") {
+            CHECKFD
             std::cin >> arg;
             AFT_CHECK_A(aft_cd(fd, arg.c_str()), continue)
         }
         else if (command == "ls") {
+            CHECKFD
             dir_t dir;
             dir_entry_t dirdata[256];
             dir.entries = dirdata;
@@ -141,6 +143,14 @@ int main(int argc, char **argv) {
                 << "\t" << std::put_time(tm, "%b %d %Y %H:%M")
                 << "\t" << dirdata[i].name << std::endl;
             }
+        }
+        else if (command == "login") {
+            CHECKFD
+            std::string user;
+            std::string passwd;
+            std::cin >> user;
+            std::cin >> passwd;
+            AFT_CHECK_A(aft_login(fd, user.c_str(), passwd.c_str()), continue)
         }
         else if (command == "close") {
             CHECKFD

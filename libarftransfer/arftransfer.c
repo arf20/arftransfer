@@ -566,11 +566,11 @@ aft_ls(int fd, dir_t *dir, size_t dirlen) {
 int
 aft_login(int fd, const char *user, const char *passwd) {
     size_t userlen = strlen(user) + 1;
-    size_t passwdlen = strlen(user) + 1;
+    size_t passwdlen = strlen(passwd) + 1;
     dsize_t arglen = userlen + passwdlen;
     char *targ = malloc(arglen);
     memcpy(targ, user, userlen);
-    memcpy(targ + userlen, user, passwdlen);
+    memcpy(targ + userlen, passwd, passwdlen);
 
     if (aft_send_cmd(fd, AFT_CMD_LOGIN, targ, arglen) != AFT_OK) {
         free(targ);

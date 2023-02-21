@@ -10,7 +10,7 @@ extern "C" {
 #include <netdb.h>
 #include <time.h>
 
-#define AFT_VER 0x13
+#define AFT_VER 0x14
 
 #define AFT_MAX_BLOCK_SIZE      0xffff
 
@@ -31,22 +31,22 @@ enum {
     AFT_CMD_CD,
     AFT_CMD_GET,
     AFT_CMD_PUT,
-    AFT_CMD_ENCRYPT,
-    AFT_CMD_CLOSE
+    AFT_CMD_RM,
+    AFT_CMD_ENCRYPT
 };
 /* Status types */
 enum {
     AFT_STAT_NS,
-    AFT_STAT_LOGGED,
+    AFT_STAT_ACK,
     AFT_STAT_PWDD,
     AFT_STAT_LSD,
-    AFT_STAT_ACK,
-    AFT_STAT_EANON,
     AFT_STAT_ELOGIN,
+    AFT_STAT_EANON,
     AFT_STAT_ENODIR,
     AFT_STAT_ENOFILE,
     AFT_STAT_EACCESS,
-    AFT_STAT_ESYS
+    AFT_STAT_ESYS,
+    AFT_STAT_ENOTIMPL
 };
 
 /* Types */

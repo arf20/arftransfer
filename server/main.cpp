@@ -6,9 +6,12 @@
 #include <thread>
 #include <chrono>
 #include <filesystem>
+#include <cstring>
 
 #include <sys/types.h>
 #include <sys/stat.h>
+
+#include <security/pam_appl.h>
 
 #include "inireader.hpp"
 
@@ -29,6 +32,12 @@ std::list<std::thread> acceptThreads;
 std::list<client> clients;
 
 std::vector<std::string> directories;
+
+// function used to get user input for pam (hack)
+int function_conversation(int num_msg, const struct pam_message **msg, struct pam_response **resp, void *appdata_ptr) {
+    *resp = (struct pam_response*)appdata_ptr;
+    return PAM_SUCCESS;
+}
 
 bool handleCommand(client& c, const command_t& cmd) {
     char args[256];
@@ -59,7 +68,6 @@ bool handleCommand(client& c, const command_t& cmd) {
             }
         } break;
         case AFT_CMD_LS: {
-
             int i = 0;
             for (const auto& file : std::filesystem::directory_iterator(c.pwd))
                 i++;
@@ -90,11 +98,36 @@ bool handleCommand(client& c, const command_t& cmd) {
             delete[] dir;
         } break;
         case AFT_CMD_LOGIN: {
-            std::string user = std::string((char*)cmd.targ);
-            std::string passwd = std::string((char*)(cmd.targ + user.length() + 1));
-            std::cout << "LOGIN " << user << " " << passwd << std::endl;
+            char *user = (char*)cmd.targ;
+            char *passwd = new char[strlen(user) + 1];
+            strcpy(passwd, (char*)(cmd.targ + strlen(user) + 1));
+            std::cout << "LOGIN " << user << " " << passwd << ": ";
 
-            AFT_CHECK_A(aft_send_stat(c.fd, AFT_STAT_ELOGIN, NULL, 0), return false)
+            struct pam_response *reply = new struct pam_response;
+            reply->resp = passwd;
+            reply->resp_retcode = 0;
+
+            struct pam_conv pamc = { function_conversation, reply };
+            pam_handle_t *pamh = NULL; 
+
+            int r = PAM_ABORT;
+            if ((r = pam_start("login", user, &pamc, &pamh)) != PAM_SUCCESS) {
+                std::cout << "Error: pam_start: " << pam_strerror(pamh, r) << std::endl;
+                AFT_CHECK_A(aft_send_stat(c.fd, AFT_STAT_ELOGIN, NULL, 0), return false)
+                return false;
+            }
+
+            if ((r = pam_authenticate(pamh, 0)) != PAM_SUCCESS) {
+                std::cout << "ELOGIN" << std::endl;
+                std::cout << "Error: pam_authenticate: " << pam_strerror(pamh, r) << std::endl;
+                AFT_CHECK_A(aft_send_stat(c.fd, AFT_STAT_ELOGIN, NULL, 0), return false)
+                return false;
+            }
+
+            pam_end(pamh, 0);
+
+            std::cout << "ACK" << std::endl;
+            AFT_CHECK_A(aft_send_stat(c.fd, AFT_STAT_ACK, NULL, 0), return false)
         } break;
     }
 

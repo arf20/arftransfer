@@ -70,6 +70,7 @@ Same as 2.1.3.
 #### 2.2.4. 0x03 COMPRESSED DATA
 Same as 2.1.4.
 
+
 ## 3. Commands
 From client
 ### 3.1. 0x00 NC - Null Command
@@ -97,23 +98,25 @@ The client should now receive 0x02 DATA blocks from server.
 **Text argument**: The name or path of file to put.<sup>1</sup>  
 **Returns**: ACK on success, or EANON, EACCESS or ESYS on error.  
 The client should now transmit (C)DATA blocks to server.  
-### 3.8. 0x07 ENCRYPT - Begin TLS Encryption
+### 3.8. 0x07 RM - Remove file or directory
+**Text argument**: File or directory path to remove.
+**Returns**: ACK on success, or EANON, ENOFILE, ENODIR, ENOACCESS or ESYS on error.
+### 3.9. 0x08 ENCRYPT - Begin TLS Encryption
 No arguments. Triggers TLS handshake.  
 Result: The server accept()s a TLS handshake.  
 Inmediately followed by a TLS connect() by the client. 
-### 3.9. 0x08 CLOSE - Close Connection Gracefully 
-No arguments. Terminates the TLS connection.
 
 <sup>1</sup>Subject to system MAX_PATH, 4096 in Linux.  
 <sup>2</sup>Subject to system max username lenth, 32 in Linux.  
 <sup>3</sup>Subject to system max password lenth, infinite in Linux.  
 
+
 ## 4. Status
 From server
 ### 4.1.  0x00 NS - Null Status
 No data.
-### 4.2.  0x01 LOGGED - Logged In Successfully
-No data.
+### 4.2.  0x01 ACK - Command Acknowledge
+No data. Result of succesful command.
 ### 4.3.  0x02 PWDD - Get Working Directory Data
 Data contains NUL terminated C-string of the current directory
 ### 4.4.  0x03 LSD - List Directory Data
@@ -150,21 +153,19 @@ struct dir_entry_t {
 ```
 Each entry is henceforth 324 bytes
 
-### 4.5.  0x04 ACK - Command Acknowledge
-No data. Result of succesful command.
+### 4.5.  0x04 ELOGIN - Error Incorrect Login
+No data.
 ### 4.6.  0x05 EANON - Error Login Required
-No data. Triggered by data commands.
-### 4.7.  0x06 ELOGIN - Error Incorrect Login
-No data. 
-### 4.8.  0x07 ENODIR - Error Directory does not exist
+No data. Triggered by data commands. 
+### 4.7.  0x06 ENODIR - Error Directory does not exist
 No data.
-### 4.9.  0x08 ENOFILE - Error File does not exist
+### 4.8.  0x07 ENOFILE - Error File does not exist
 No data.
-### 4.10. 0x09 EACCESS - PError ermission denied
+### 4.9.  0x08 EACCESS - PError ermission denied
 No data.
-### 4.11. 0x0a ESYS - Generic system error in the server
+### 4.10. 0x09 ESYS - Generic system error in the server
 No data.
-### 4.12. 0x0b ENOTIMPL - Error Not Implemented 
+### 4.11. 0x0a ENOTIMPL - Error Not Implemented 
 
 ## 5. Revision History
 ### 5.1. Version 1.0.
@@ -175,17 +176,19 @@ Added COMPRESSED DATA block, and ENCRYPT command. Backwards compatible.
 Added LOGIN and appropiate status. Not backwards compatible.
 ### 5.4. Version 1.3.
 Added PWD and CLOSE commands, and PWDD and EANON status. Not backwards compatible. Use only this version.
+### 5.5. Version 1.4.
+Removed CLOSE cmd and LOGGED status, replaced with the new RM cmd and ACK for LOGIN.
 
 ## Appendix A. Command and status cheat sheet
 ```
      CMD         STAT         ESTAT
 0x00 NC     0x00 NS
-0x01 LOGIN  0x01 LOGGED  0x06 ELOGIN
+0x01 LOGIN  0x01 ACK     0x04 ELOGIN
 0x02 PWD    0x02 PWDD    0x05 EANON
 0x03 LS     0x03 LSD     0x05 EANON    
-0x04 CD     0x04 ACK     0x05 EANON,  0x07 ENODIR,                0x09 EACCESS, 0x0a ESYS
-0x05 GET    0x04 ACK     0x05 EANON,                0x08 ENOFILE, 0x09 EACCESS, 0x0a ESYS
-0x06 PUT    0x04 ACK     0x05 EANON,                              0x09 EACCESS, 0x0a ESYS
-0x07 ENCRYPT <accept TLS>
-0x08 CLOSE
+0x04 CD     0x01 ACK     0x05 EANON,  0x06 ENODIR,                0x08 EACCESS, 0x09 ESYS
+0x05 GET    0x01 ACK     0x05 EANON,                0x07 ENOFILE, 0x08 EACCESS, 0x09 ESYS
+0x06 PUT    0x01 ACK     0x05 EANON,                              0x08 EACCESS, 0x09 ESYS
+0x07 RM     0x01 ACK     0x05 EANON,  0x06 ENODIR,  0x07 ENOFILE, 0x08 EACCESS, 0x09 ESYS
+0x08 ENCRYPT <accept TLS>
 ```

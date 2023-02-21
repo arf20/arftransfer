@@ -204,7 +204,7 @@ aft_parse_stat(const char *data, dsize_t bsize, status_t *status) {
 int
 aft_check_cmd(const command_t *command) {
     if (!(command->header.cmd >= AFT_CMD_NC &&
-        command->header.cmd <= AFT_CMD_CLOSE))
+        command->header.cmd <= AFT_CMD_ENCRYPT))
     {
         lasterror = AFT_CPERR_CMD;
         return AFT_ERROR;
@@ -310,7 +310,6 @@ aft_get_last_sys_error_str() {
 
 int
 aft_close(int fd) {
-    aft_send_cmd(fd, AFT_CMD_CLOSE, NULL, 0); /* error here is unimportant */
     if (close(fd) < 0) {
         lasterror = AFT_SYSERR_CLOSE;
         lastsyserror = errno;
@@ -516,7 +515,7 @@ aft_cd(int fd, const char *dir) {
     status_t status;
 
     /* send cd cmd */
-    if (aft_send_cmd(fd, AFT_CMD_CD, dir, strlen(dir)) != AFT_OK) {
+    if (aft_send_cmd(fd, AFT_CMD_CD, dir, strlen(dir) + 1) != AFT_OK) {
         lasterror = AFT_SYSERR_SEND;
         lastsyserror = errno;
         return AFT_ERROR;
@@ -586,7 +585,7 @@ aft_login(int fd, const char *user, const char *passwd) {
         return AFT_ERROR;
     }
 
-    if (loginres.header.stat != AFT_STAT_LOGGED) {
+    if (loginres.header.stat != AFT_STAT_ACK) {
         lasterror = AFT_ERR_LOGIN;
         return AFT_ERROR;
     }
@@ -603,6 +602,12 @@ aft_listen(struct addrinfo *addr, uint16_t port) {
     int fd = -1;
     /* Create socket */
     if ((fd = socket(addr->ai_family, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+        lasterror = AFT_SYSERR_SOCKET;
+        lastsyserror = errno;
+        return AFT_ERROR;
+    }
+
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0) {
         lasterror = AFT_SYSERR_SOCKET;
         lastsyserror = errno;
         return AFT_ERROR;

@@ -41,4 +41,4 @@ file (GLOB SERVER_SRC
 )
 
 add_executable(arftransferd ${SERVER_SRC})
-target_link_libraries(arftransferd PRIVATE Threads::Threads z arftransfer)
+target_link_libraries(arftransferd PRIVATE Threads::Threads z arftransfer pam)

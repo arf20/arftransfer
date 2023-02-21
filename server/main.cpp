@@ -113,15 +113,15 @@ bool handleCommand(client& c, const command_t& cmd) {
             int r = PAM_ABORT;
             if ((r = pam_start("login", user, &pamc, &pamh)) != PAM_SUCCESS) {
                 std::cout << "Error: pam_start: " << pam_strerror(pamh, r) << std::endl;
-                AFT_CHECK_A(aft_send_stat(c.fd, AFT_STAT_ELOGIN, NULL, 0), return false)
-                return false;
+                AFT_CHECK_A(aft_send_stat(c.fd, AFT_STAT_ELOGIN, NULL, 0), return true)
+                break;
             }
 
             if ((r = pam_authenticate(pamh, 0)) != PAM_SUCCESS) {
                 std::cout << "ELOGIN" << std::endl;
                 std::cout << "Error: pam_authenticate: " << pam_strerror(pamh, r) << std::endl;
                 AFT_CHECK_A(aft_send_stat(c.fd, AFT_STAT_ELOGIN, NULL, 0), return false)
-                return false;
+                break;
             }
 
             pam_end(pamh, 0);

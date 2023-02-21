@@ -50,7 +50,6 @@ const char *errorstr[] = {
     "Unexpected wrong block type received",
     "Unexpected wrong status received",
     "Buffer size too small",
-    "Incorrect login"
     "Incorrect login",
     "Directory does not exist",
     "File does not exist",

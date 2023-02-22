@@ -35,9 +35,9 @@ Config file
 port=8088
 address=0.0.0.0
 
-[anonymous]
-root=/srv
-write=true
+allowanon=true
+anonroot=/srv
+anonwriteenable=true
 ```
-If `anonymous` section is not present, anonymous login is disabled
+If `allowanon` key is not present, anonymous login is presumed disabled
 

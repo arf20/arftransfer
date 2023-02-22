@@ -133,11 +133,12 @@ enum {
     AFT_SYSERR_RECV,         /* Error receiving */
     AFT_SYSERR_SEND,         /* Error sending */
     AFT_SYSERR_CLOSE,        /* Error closing */
-    AFT_SYSERR_CLOSED,       /* Not an error, gracefully closed by peer */
 
     AFT_SYSERR_BIND,         /* Error binding socket */
     AFT_SYSERR_LISTEN,       /* Error listening on socket */
     AFT_SYSERR_ACCEPT,       /* Error accepting connection */
+
+    AFT_SYSERR_CLOSED,       /* Not an error, gracefully closed by peer */
 
 /* Protocol errors */
     AFT_PERR_TYPE,           /* Unexpected wrong block type received */
@@ -147,6 +148,7 @@ enum {
     AFT_IERR_BSIZE,          /* Buffer size too small */
 
 /* Normal errors */
+    AFT_ERR_ANON,            /* Anonymous user not allowed */
     AFT_ERR_LOGIN,           /* Incorrect login */
     AFT_ERR_NODIR,           /* Directory does not exist */
     AFT_ERR_NOFILE,          /* File does not exist */

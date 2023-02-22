@@ -45,18 +45,19 @@ const char *errorstr[] = {
     "Error receiving",
     "Error sending",
     "Error closing",
-    "Connection closed by peer",
     "Error binding socket",
     "Error listening on socket",
     "Error accepting connection",
+    "Connection closed by peer",
     "Unexpected wrong block type received",
     "Unexpected wrong status received",
     "Buffer size too small",
+    "Anonymous user not allowed",
     "Incorrect login",
     "Directory does not exist",
     "File does not exist",
     "Permission denied",
-    "System error in server"
+    "Unknown system error in server"
 };
 
 /* zlib stuff */
@@ -499,7 +500,9 @@ aft_pwd(int fd, char *pwd, int len) {
         return AFT_ERROR;
 
     if (status.header.stat != AFT_STAT_PWDD) {
-        lasterror = AFT_PERR_STAT;
+        if (status.header.stat == AFT_STAT_EANON)
+            lasterror = AFT_ERR_ANON;
+        else lasterror = AFT_PERR_STAT;
         return AFT_ERROR;
     }
 
@@ -530,10 +533,13 @@ aft_cd(int fd, const char *dir) {
         return AFT_ERROR;
 
     if (status.header.stat != AFT_STAT_ACK) {
-        if (status.header.stat == AFT_STAT_ENODIR)
+        if (status.header.stat == AFT_STAT_EANON)
+            lasterror = AFT_ERR_ANON;
+        else if (status.header.stat == AFT_STAT_ENODIR)
             lasterror = AFT_ERR_NODIR;
         else if (status.header.stat == AFT_STAT_EACCESS)
             lasterror = AFT_ERR_ACCESS;
+        else lasterror = AFT_PERR_STAT;
         return AFT_ERROR;
     }
 
@@ -555,8 +561,19 @@ aft_ls(int fd, dir_t *dir, size_t dirlen) {
     if (aft_recv_stat(fd, &status) != AFT_OK)
         return AFT_ERROR;
 
-    if (dirlen < status.header.size)
-        return AFT_IERR_BSIZE;
+    if (status.header.stat != AFT_STAT_LSD) {
+        if (status.header.stat == AFT_STAT_EANON)
+            lasterror = AFT_ERR_ANON;
+        else if (status.header.stat == AFT_STAT_ESYS)
+            lasterror = AFT_ERR_SRVSYS;
+        else lasterror = AFT_PERR_STAT;
+        return AFT_ERROR;
+    }
+
+    if (dirlen < status.header.size) {
+        lasterror = AFT_IERR_BSIZE;
+        return AFT_ERROR;
+    }
 
     memcpy(dir->entries, status.sdata, status.header.size);
 

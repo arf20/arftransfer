@@ -20,18 +20,31 @@
 #define AFT_CHECK(x) if ((x) != AFT_OK) { std::cout << "Error: " << aft_get_last_error_str(); if (aft_get_last_error() >= AFT_SYSERR_SOCKET && aft_get_last_error() <= AFT_SYSERR_ACCEPT) { std::cout << ": " << aft_get_last_sys_error_str(); } std::cout << std::endl; }
 #define AFT_CHECK_A(x, a) if ((x) != AFT_OK) { std::cout << "Error: " << aft_get_last_error_str(); if (aft_get_last_error() >= AFT_SYSERR_SOCKET && aft_get_last_error() <= AFT_SYSERR_ACCEPT) { std::cout << ": " << aft_get_last_sys_error_str(); } std::cout << std::endl; a; }
 
+#define CHECK_LOGGED if (!c.logged && !config::anonAllowed) { \
+    std::cout << "EANON" << std::endl; \
+    AFT_CHECK_A(aft_send_stat(c.fd, AFT_STAT_EANON, NULL, 0), return false) \
+    break; \
+}
+
+const std::string conffname = "server.conf";
+
 struct client {
     int fd;
     std::string addr;
     std::string pwd;
+    bool logged;
+    std::string user;
 };
-
-const std::string conffname = "server.conf";
 
 std::list<std::thread> acceptThreads;
 std::list<client> clients;
 
-std::vector<std::string> directories;
+namespace config {
+    uint16_t port;
+    std::vector<std::string> addresses;
+    bool anonAllowed = false;
+    std::string anonRoot;
+};
 
 // function used to get user input for pam (hack)
 int function_conversation(int num_msg, const struct pam_message **msg, struct pam_response **resp, void *appdata_ptr) {
@@ -40,43 +53,66 @@ int function_conversation(int num_msg, const struct pam_message **msg, struct pa
 }
 
 bool handleCommand(client& c, const command_t& cmd) {
-    char args[256];
+    char args[AFT_MAX_CMD_DATA_SIZE];
     switch (cmd.header.cmd) {
         case AFT_CMD_NC: break;
         case AFT_CMD_PWD: {
-            std::cout << "PWD" << std::endl;
+            std::cout << "PWD: ";
+            CHECK_LOGGED
+            std::cout << "PWDD ";
+            if (!c.logged) { std::cout << "[" << config::anonRoot << "]"; }
+            std::cout << c.pwd << " ACK" << std::endl;
             AFT_CHECK_A(aft_send_stat(c.fd, AFT_STAT_PWDD, c.pwd.c_str(), c.pwd.length()), return false)
         } break;
         case AFT_CMD_CD: {
             std::copy(cmd.targ, cmd.targ + cmd.header.size, args);
             args[cmd.header.size] = '\0';
             std::cout << "CD " << args << ": ";
+            CHECK_LOGGED
 
             std::string npwd;
             if (args[0] == '/') npwd = std::string(args);
             else if (c.pwd == "/") npwd = "/" + std::string(args);
             else npwd = c.pwd + "/" + std::string(args);
 
-            if (!(std::filesystem::exists(npwd) && std::filesystem::is_directory(npwd))) {
+            npwd = std::filesystem::weakly_canonical(std::filesystem::path(npwd));
+
+            std::string realpwd = !c.logged ? config::anonRoot + npwd : npwd;
+
+            if (!(std::filesystem::exists(realpwd) && std::filesystem::is_directory(realpwd))) {
+                if (!c.logged) { std::cout << "[" << config::anonRoot << "]"; }
                 std::cout << npwd << " ENODIR" << std::endl;
                 AFT_CHECK_A(aft_send_stat(c.fd, AFT_STAT_ENODIR, NULL, 0), return false)
+                break;
             }
-            else {
-                c.pwd = npwd;
-                std::cout << npwd << " ACK" << std::endl;
-                AFT_CHECK_A(aft_send_stat(c.fd, AFT_STAT_ACK, NULL, 0), return false)
-            }
+            
+            c.pwd = npwd;
+
+            if (!c.logged) { std::cout << "[" << config::anonRoot << "]"; }
+            std::cout << c.pwd << " ACK" << std::endl;
+            AFT_CHECK_A(aft_send_stat(c.fd, AFT_STAT_ACK, NULL, 0), return false)
         } break;
         case AFT_CMD_LS: {
+            std::cout << "LS: ";
+            CHECK_LOGGED
+            // isolate anon user
+            std::string realpwd = !c.logged ? config::anonRoot + c.pwd : c.pwd;
+            
+            if (!std::filesystem::exists(realpwd)) {
+                std::cout << "ESYS Path " << realpwd << " does not exist" << std::endl;
+                AFT_CHECK_A(aft_send_stat(c.fd, AFT_STAT_ESYS, NULL, 0), return false)
+                break;
+            }
+
             int i = 0;
-            for (const auto& file : std::filesystem::directory_iterator(c.pwd))
+            for (const auto& file : std::filesystem::directory_iterator(realpwd))
                 i++;
 
             dir_entry_t *dir = new dir_entry_t[i];
             struct stat sb;
 
             i = 0;
-            for (const auto& file : std::filesystem::directory_iterator(c.pwd)) {
+            for (const auto& file : std::filesystem::directory_iterator(realpwd)) {
                 std::string fname = file.path().filename().generic_string();
                 lstat(file.path().c_str(), &sb);
 
@@ -92,7 +128,9 @@ bool handleCommand(client& c, const command_t& cmd) {
                 i++;
             }
 
-            std::cout << "LS: LSD " << c.pwd << " " << i << " entries" << std::endl;
+            std::cout << "LSD ";
+            if (!c.logged) { std::cout << "[" << config::anonRoot << "]"; }
+            std::cout << c.pwd << " " << i << " entries" << std::endl;
             AFT_CHECK_A(aft_send_stat(c.fd, AFT_STAT_LSD, (char*)dir, sizeof(dir_entry_t) * i), return false)
 
             delete[] dir;
@@ -128,6 +166,9 @@ bool handleCommand(client& c, const command_t& cmd) {
 
             std::cout << "ACK" << std::endl;
             AFT_CHECK_A(aft_send_stat(c.fd, AFT_STAT_ACK, NULL, 0), return false)
+
+            c.logged = true;
+            c.user = std::string(user);
         } break;
     }
 
@@ -151,7 +192,7 @@ void receiveLoop(std::list<client>::iterator cit) {
             return;
         }
 
-        std::cout << "Block received from " << c.addr << ": ";
+        std::cout << "Block received from " << c.addr << " (" << (!c.logged ? "anon" : c.user) << "): ";
 
         switch (block.header.type) {
             case AFT_TYPE_PING: {
@@ -192,6 +233,7 @@ void acceptLoop(int afd) {
         c.fd = cfd;
         c.addr = std::string(addrstr);
         c.pwd = "/";
+        c.logged = false;
 
         clients.push_back(c);
 
@@ -214,6 +256,7 @@ void createConfig(const std::string& path) {
 int main() {
     std::cout << "Starting arftransfer server" << std::endl;
 
+    // Parse config
     INIReader reader("server.conf");
 
     if (reader.ParseError() != 0) {
@@ -222,19 +265,30 @@ int main() {
         return 1;
     }
 
-    uint16_t port = reader.GetInteger("", "port", 0);
+    config::port = reader.GetInteger("", "port", 8088);
 
-    std::stringstream addressesss(reader.Get("", "address", ""));
-    std::vector<std::string> addresses;
+    std::stringstream addressesss(reader.Get("", "address", "0.0.0.0"));
     std::string addrstr;
     while (std::getline(addressesss, addrstr, ','))
-        addresses.push_back(addrstr);
+        config::addresses.push_back(addrstr);
+
+    if (reader.GetBoolean("", "allowanon", false)) {
+        config::anonAllowed = true;
+        config::anonRoot = reader.Get("", "anonroot", "/srv");
+        if (config::anonRoot.back() != '/') config::anonRoot += "/";
+        config::anonRoot.pop_back();
+    }
+
+    std::cout << "Port: " << config::port << std::endl
+        << "Address: "; for (auto a : config::addresses) std::cout << a << ", ";
+    std::cout << std::endl << "Anonymous enabled: " << (config::anonAllowed ? "true" : "false") << std::endl;
+    if (config::anonAllowed) std::cout << "Anonymous root: " << config::anonRoot << std::endl;
 
     // arftransfer init
     aft_init();
 
     // Create listen sockets
-    for (const std::string& addr : addresses) {
+    for (const std::string& addr : config::addresses) {
         struct addrinfo *ai = NULL, *p = NULL;
         char addrstr[256];
         AFT_CHECK(aft_resolve(addr.c_str(), &ai))
@@ -244,8 +298,8 @@ int main() {
         while (p) {
             AFT_CHECK(aft_get_ai_addr_str(p, addrstr, 256, 1))
 
-            std::cout << "Listening on " << addrstr << " port " << port << std::endl;
-            if ((fd = aft_listen(p, port)) < 0) {
+            std::cout << "Listening on " << addrstr << " port " << config::port << std::endl;
+            if ((fd = aft_listen(p, config::port)) < 0) {
                 std::cout << "Error: " << aft_get_last_error_str() << ": " << aft_get_last_sys_error_str() << std::endl;
                 p = p->ai_next;
                 continue;

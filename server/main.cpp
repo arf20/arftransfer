@@ -101,7 +101,7 @@ bool handleCommand(client& c, const command_t& cmd) {
             char *user = (char*)cmd.targ;
             char *passwd = new char[strlen(user) + 1];
             strcpy(passwd, (char*)(cmd.targ + strlen(user) + 1));
-            std::cout << "LOGIN " << user << " " << passwd << ": ";
+            std::cout << "LOGIN " << user << ": ";
 
             struct pam_response *reply = new struct pam_response;
             reply->resp = passwd;

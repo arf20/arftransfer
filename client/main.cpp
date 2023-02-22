@@ -2,6 +2,7 @@
 #include <iomanip>
 
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include <cxxopts.hpp>
 
@@ -149,7 +150,7 @@ int main(int argc, char **argv) {
             std::string user;
             std::string passwd;
             std::cin >> user;
-            std::cin >> passwd;
+            passwd = getpass("Password: ");
             AFT_CHECK_A(aft_login(fd, user.c_str(), passwd.c_str()), continue)
         }
         else if (command == "close") {

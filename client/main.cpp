@@ -44,8 +44,7 @@ int main(int argc, char **argv) {
         ("p,port", "Specify port", cxxopts::value<std::string>())
         ("u,user", "Username", cxxopts::value<std::string>())
         ("P,passwd", "Password", cxxopts::value<std::string>())
-        ("host", "The host to open", cxxopts::value<std::string>())
-        ;
+        ("host", "The host to open", cxxopts::value<std::string>());
 
     options.parse_positional({"host"});
     auto result = options.parse(argc, argv);
@@ -81,13 +80,21 @@ int main(int argc, char **argv) {
         std::cout << "arftransfer> ";
         std::cin >> command;
 
-        if (command == "help") {
-            std::cout << "\thelp\n\texit\n\topen\n\tping\n\tclose" << std::endl;
+        if (command == "help" || command == "h") {
+            std::cout << "\thelp\t\t\tDisplay this message"
+                << "\n\texit|e\t\t\tExit lol"
+                << "\n\topen|o [host] [port]\tOpen connection"
+                << "\n\tping|p\t\t\tMeasure RTT"
+                << "\n\tpwd\t\t\tGet current working directory"
+                << "\n\tcd <path>\t\tChange directory to path"
+                << "\n\tls\t\t\tGet directory listing"
+                << "\n\tlogin [user]\t\tLogin into system"
+                << "\n\tclose|c\t\t\tClose connection" << std::endl;
         }
-        else if (command == "exit") {
+        else if (command == "exit" || command == "e") {
             return 0;
         }
-        else if (command == "open") {
+        else if (command == "open" || command == "o") {
             std::cout << "Host> ";
             std::string host;
             std::cin >> host;
@@ -101,7 +108,7 @@ int main(int argc, char **argv) {
 
             std::cout << "Connection established" << std::endl;
         }
-        else if (command == "ping") {
+        else if (command == "ping" || command == "p") {
             CHECKFD
             timespec rtt;
             AFT_CHECK_A(aft_ping(fd, &rtt), continue)
@@ -153,7 +160,7 @@ int main(int argc, char **argv) {
             passwd = getpass("Password: ");
             AFT_CHECK_A(aft_login(fd, user.c_str(), passwd.c_str()), continue)
         }
-        else if (command == "close") {
+        else if (command == "close" || command == "c") {
             CHECKFD
             aft_close(fd);
             fd = -1;

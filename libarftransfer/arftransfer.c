@@ -32,7 +32,9 @@ const char *errorstr[] = {
     "Unrecongnised block type",
     "Block size too big",
     "Unrecognised command",
+    "Command data too big",
     "Unrecognised status",
+    "Status data too big",
     "Cannot inflate, wrong block type",
     "Inflate error",
     "Deflate error",
@@ -127,7 +129,7 @@ aft_check_block(const block_t *block) {
         return AFT_ERROR;
     }
 
-    if (block->header.size > AFT_MAX_BLOCK_SIZE + sizeof(status_header_t)) {
+    if (block->header.size > AFT_MAX_BLOCK_DATA_SIZE) {
         lasterror = AFT_BPERR_SIZE;
         return AFT_ERROR;
     }
@@ -208,6 +210,9 @@ aft_check_cmd(const command_t *command) {
         lasterror = AFT_CPERR_CMD;
         return AFT_ERROR;
     }
+    if (command->header.size > AFT_MAX_CMD_DATA_SIZE) {
+        lasterror = AFT_CPERR_SIZE;
+    }
     return AFT_OK;
 }
 
@@ -218,6 +223,9 @@ aft_check_stat(const status_t *command) {
     {
         lasterror = AFT_SPERR_STAT;
         return AFT_ERROR;
+    }
+    if (command->header.size > AFT_MAX_STAT_DATA_SIZE) {
+        lasterror = AFT_SPERR_SIZE;
     }
     return AFT_OK;
 }
@@ -265,16 +273,13 @@ aft_recv_stat(int fd, status_t *status) {
 int
 aft_init() {
     /* allocate buffers */
-    if ((blockbuf = malloc(AFT_MAX_BLOCK_SIZE +
-        sizeof(block_header_t))) == NULL)
+    if ((blockbuf = malloc(AFT_MAX_BLOCK_SIZE)) == NULL)
         return AFT_ERROR;
-    if ((cmdbuf = malloc(AFT_MAX_BLOCK_SIZE + sizeof(block_header_t) +
-        sizeof(command_header_t))) == NULL)
+    if ((cmdbuf = malloc(AFT_MAX_BLOCK_DATA_SIZE)) == NULL)
         return AFT_ERROR;
-    if ((statbuf = malloc(AFT_MAX_BLOCK_SIZE + sizeof(block_header_t) +
-        sizeof(status_header_t))) == NULL)
+    if ((statbuf = malloc(AFT_MAX_BLOCK_DATA_SIZE)) == NULL)
         return AFT_ERROR;
-    if ((databuf = malloc(AFT_MAX_BLOCK_SIZE)) == NULL)
+    if ((databuf = malloc(AFT_MAX_BLOCK_DATA_SIZE)) == NULL)
         return AFT_ERROR;
     return AFT_OK;
 }
@@ -329,7 +334,7 @@ aft_send_cdata(int fd, const char *data, dsize_t size) {
     zs.opaque = Z_NULL;
     zs.avail_in = (uInt)size;
     zs.next_in = (Bytef*)data;
-    zs.avail_out = (uInt)AFT_MAX_BLOCK_SIZE;
+    zs.avail_out = (uInt)AFT_MAX_BLOCK_DATA_SIZE;
     zs.next_out = (Bytef*)databuf;
 
     if (deflateInit2(&zs, Z_DEFAULT_COMPRESSION, Z_DEFLATED, 15 | 16, 8,

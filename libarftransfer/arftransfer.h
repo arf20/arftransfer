@@ -12,8 +12,6 @@ extern "C" {
 
 #define AFT_VER 0x14
 
-#define AFT_MAX_BLOCK_SIZE      0xffff
-
 /* Block types */
 /*   Common between server and client */
 #define AFT_TYPE_PING           0x00
@@ -104,6 +102,11 @@ typedef struct dir_s {
     size_t count;
 } dir_t;
 
+#define AFT_MAX_BLOCK_DATA_SIZE      0xffff
+#define AFT_MAX_BLOCK_SIZE           (AFT_MAX_BLOCK_DATA_SIZE + sizeof(block_header_t))
+#define AFT_MAX_CMD_DATA_SIZE        (AFT_MAX_BLOCK_DATA_SIZE - sizeof(command_header_t))
+#define AFT_MAX_STAT_DATA_SIZE       (AFT_MAX_BLOCK_DATA_SIZE - sizeof(status_header_t))
+
 /* Implementation errors */
 enum {
     AFT_ERROR = -1,
@@ -114,8 +117,10 @@ enum {
     AFT_BPERR_SIZE,          /* Block Size too big */
 /* Command parse errors */
     AFT_CPERR_CMD,           /* Unrecognised command */
+    AFT_CPERR_SIZE,          /* Command data too big */
 /* Status parse errors */
     AFT_SPERR_STAT,          /* Unrecognised status */
+    AFT_SPERR_SIZE,          /* Status data too big*/
 /* Compressing errors */
     AFT_CBIERR_TYPE,         /* Cannot inflate - wrong block type */
     AFT_ZERR_INFLATE,        /* Inflate error */

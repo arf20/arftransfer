@@ -10,3 +10,34 @@ mkdir build && cd build
 cmake ..
 make
 ```
+
+## Client options
+```
+Usage:
+    arftransfer [-hv] [-p port] [-P passwd] [host]
+```
+```
+    help                    Display this message
+    exit|e                  Exit lol
+    open|o [host] [port]    Open connection
+    ping|p                  Measure RTT
+    pwd                     Get current working directory
+    cd <path>               Change directory to path
+    ls                      Get directory listing
+    login [user]            Login into system, prompts for password
+    close|c                 Close connection
+```
+
+## Server details
+Config file
+```
+# Sample config file
+port=8088
+address=0.0.0.0
+
+[anonymous]
+root=/srv
+write=true
+```
+If `anonymous` section is not present, anonymous login is disabled
+

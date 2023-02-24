@@ -185,11 +185,11 @@ bool handleCommand(client& c, const command_t& cmd) {
         } break;
         case AFT_CMD_GET: {
             char *path = (char*)cmd.targ;
-            std::string realpwd = !c.logged ? config::anonRoot + c.pwd : c.pwd;
+            std::string realpwd = !c.logged ? config::anonRoot + c.pwd : c.pwd + "/";
 
             std::cout << "GET ";
             if (!c.logged) std::cout << "[" << config::anonRoot << "]";
-            std::cout << "[" << c.pwd << "]" << path << ": ";
+            std::cout << "[" << c.pwd << (c.logged ? "/" : "") << "]" << path << ": ";
             
             if (!std::filesystem::exists(realpwd + path)) {
                 std::cout << "ENOFILE" << std::endl;
@@ -213,19 +213,20 @@ bool handleCommand(client& c, const command_t& cmd) {
             auto begin = file.tellg();
             file.seekg(0, std::ios::end);
             auto end = file.tellg();
+            file.seekg(0, std::ios::beg);
             auto fsize = end - begin;
-            size_t sendSize = 0;
+            size_t sendSize = 1;
 
-            while (!file.eof()) {
+            while (sendSize) {
                 if (fsize < AFT_MAX_BLOCK_DATA_SIZE) { sendSize = fsize; fsize -= sendSize; }
                 else { sendSize = AFT_MAX_BLOCK_DATA_SIZE; fsize -= sendSize; }
 
                 file.read(readbuffer, sendSize);
                 AFT_CHECK_A(aft_send_data(c.fd, readbuffer, sendSize), return false)
-                std::cout << ".";
+                std::cout << sendSize << " ";
             }
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            std::this_thread::sleep_for(std::chrono::milliseconds(10)); // hack to separate blocks
 
             // terminate transfer with a data block of size 0
             AFT_CHECK_A(aft_send_data(c.fd, NULL, 0), return false)
@@ -264,8 +265,7 @@ void receiveLoop(std::list<client>::iterator cit) {
             } break;
             case AFT_TYPE_CMD: {
                 std::cout << "CMD: ";
-                aft_parse_cmd(block.data, block.header.size, &cmd);
-                AFT_CHECK(aft_check_cmd(&cmd))
+                AFT_CHECK(aft_parse_cmd(block.data, block.header.size, &cmd))
                 if (!handleCommand(c, cmd)) {
                     aft_close(c.fd);
                     clients.erase(cit);

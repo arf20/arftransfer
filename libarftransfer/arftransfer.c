@@ -191,18 +191,6 @@ aft_inflate_cdatab(const block_t *cdatab, block_t *datab) {
     return AFT_OK;
 }
 
-void
-aft_parse_cmd(const uint8_t *data, dsize_t bsize, command_t *command) {
-    command->header = *(command_header_t*)data;
-    command->targ = (uint8_t*)data + sizeof(command_header_t);
-}
-
-void
-aft_parse_stat(const char *data, dsize_t bsize, status_t *status) {
-    status->header = *(status_header_t*)data;
-    status->sdata = (char*)data + sizeof(status_header_t);
-}
-
 int
 aft_check_cmd(const command_t *command) {
     if (!(command->header.cmd >= AFT_CMD_NC &&
@@ -218,17 +206,33 @@ aft_check_cmd(const command_t *command) {
 }
 
 int
-aft_check_stat(const status_t *command) {
-    if (!(command->header.stat >= AFT_STAT_NS &&
-        command->header.stat <= AFT_STAT_ESYS))
+aft_check_stat(const status_t *status) {
+    if (!(status->header.stat >= AFT_STAT_NS &&
+        status->header.stat <= AFT_STAT_ESYS))
     {
         lasterror = AFT_SPERR_STAT;
         return AFT_ERROR;
     }
-    if (command->header.size > AFT_MAX_STAT_DATA_SIZE) {
+    if (status->header.size > AFT_MAX_STAT_DATA_SIZE) {
         lasterror = AFT_SPERR_SIZE;
     }
     return AFT_OK;
+}
+
+int
+aft_parse_cmd(const uint8_t *data, dsize_t bsize, command_t *command) {
+    command->header = *(command_header_t*)data;
+    command->targ = (uint8_t*)data + sizeof(command_header_t);
+
+    return aft_check_cmd(command);
+}
+
+int
+aft_parse_stat(const char *data, dsize_t bsize, status_t *status) {
+    status->header = *(status_header_t*)data;
+    status->sdata = (char*)data + sizeof(status_header_t);
+
+    return aft_check_stat(status);
 }
 
 int
@@ -243,9 +247,7 @@ aft_recv_cmd(int fd, command_t *command) {
         return AFT_ERROR;
     }
 
-    aft_parse_cmd(cmdb.data, cmdb.header.size, command);
-
-    if (aft_check_cmd(command) != AFT_OK)
+    if (aft_parse_cmd(cmdb.data, cmdb.header.size, command) != AFT_OK)
         return AFT_ERROR;
 }
 
@@ -261,9 +263,7 @@ aft_recv_stat(int fd, status_t *status) {
         return AFT_ERROR;
     }
 
-    aft_parse_stat(statb.data, statb.header.size, status);
-
-    if (aft_check_stat(status) != AFT_OK)
+    if (aft_parse_stat(statb.data, statb.header.size, status) != AFT_OK)
         return AFT_ERROR;
 
     return AFT_OK;
@@ -625,6 +625,7 @@ aft_get(int fd, const char *path, int (*datahandler)(const char*, size_t)) {
 
     block_t block;
     block_t infblock;
+    status_t status;
     while (1) {
         if (aft_recv_block(fd, &block) != AFT_OK) {
             lasterror = AFT_SYSERR_RECV;
@@ -643,6 +644,16 @@ aft_get(int fd, const char *path, int (*datahandler)(const char*, size_t)) {
         } else if (block.header.type == AFT_TYPE_CDATA) {
             //aft_inflate_cdatab(&block, &infblock);
             // inflate
+        } else if (block.header.type == AFT_TYPE_STAT) {
+            if (aft_parse_stat(block.data, block.header.size, &status) != AFT_OK)
+                return AFT_ERROR;
+            
+            switch (status.header.stat) {
+                case AFT_STAT_ENOFILE: lasterror = AFT_ERR_NOFILE; break;
+                case AFT_STAT_EACCESS: lasterror = AFT_ERR_ACCESS; break;
+                case AFT_STAT_ESYS: lasterror = AFT_ERR_SRVSYS; break;
+            }
+            return AFT_ERROR;
         } else {
             lasterror = AFT_PERR_TYPE;
             return AFT_ERROR;

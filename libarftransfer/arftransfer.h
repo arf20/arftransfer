@@ -183,8 +183,7 @@ int aft_get(int fd, const char *path, int (*datahandler)(const char*, size_t));
 /* Server functions */
 int aft_listen(struct addrinfo *addr, uint16_t port);
 int aft_accept(int fd, struct sockaddr *sa, socklen_t *len);
-void aft_parse_cmd(const uint8_t *data, dsize_t bsize, command_t *command);
-int aft_check_cmd(const command_t *command);
+int aft_parse_cmd(const uint8_t *data, dsize_t bsize, command_t *command);
 int aft_recv_cmd(int fd, command_t *command);
 int aft_send_stat(int fd, stat_t stat, const char *data, dsize_t size);
 

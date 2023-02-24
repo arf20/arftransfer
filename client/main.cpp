@@ -82,6 +82,8 @@ int main(int argc, char **argv) {
     std::string command;
 
     while (!stopcli) {
+        AFT_CHECK_A(aft_flush(fd), continue)
+
         std::cout << "arftransfer> ";
         std::cin >> command;
 

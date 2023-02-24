@@ -164,6 +164,7 @@ const char *aft_get_last_error_str();
 int aft_get_last_sys_error();
 const char* aft_get_last_sys_error_str();
 int aft_close(int fd);
+int aft_flush(int fd);
 int aft_send_block(int fd, type_t type, const char *data, dsize_t size);
 int aft_send_data(int fd, const char *data, dsize_t size);
 int aft_send_cdata(int fd, const char *data, dsize_t size);

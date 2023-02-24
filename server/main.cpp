@@ -224,6 +224,7 @@ bool handleCommand(client& c, const command_t& cmd) {
                 file.read(readbuffer, sendSize);
                 AFT_CHECK_A(aft_send_data(c.fd, readbuffer, sendSize), return false)
                 std::cout << sendSize << " ";
+                std::this_thread::sleep_for(std::chrono::milliseconds(10)); // hack to separate blocks
             }
 
             std::this_thread::sleep_for(std::chrono::milliseconds(10)); // hack to separate blocks

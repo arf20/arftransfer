@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <sys/ioctl.h>
 #include <time.h>
 
 #include <zlib.h>
@@ -323,6 +324,20 @@ aft_close(int fd) {
 }
 
 int
+aft_flush(int fd) {
+    int count;
+    ioctl(fd, FIONREAD, &count);
+    if (count < 1) return AFT_OK;
+    
+    if (recv(fd, blockbuf, 0, MSG_TRUNC) < 0) {
+        lasterror = AFT_SYSERR_RECV;
+        lastsyserror = errno;
+        return AFT_ERROR;
+    }
+    return AFT_OK;
+}
+
+int
 aft_send_data(int fd, const char *data, dsize_t size) {
     return aft_send_block(fd, AFT_TYPE_DATA, data, size);
 }
@@ -613,7 +628,6 @@ aft_login(int fd, const char *user, const char *passwd) {
 
     return AFT_OK;
 }
-
 
 int
 aft_get(int fd, const char *path, int (*datahandler)(const char*, size_t)) {

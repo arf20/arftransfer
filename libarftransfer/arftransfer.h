@@ -179,6 +179,7 @@ int aft_pwd(int fd, char *pwd, int len);
 int aft_cd(int fd, const char *dir);
 int aft_ls(int fd, dir_t *dir, size_t dirlen);
 int aft_login(int fd, const char *user, const char *passwd);
+int aft_get(int fd, const char *path, int (*datahandler)(const char*, size_t));
 /* Server functions */
 int aft_listen(struct addrinfo *addr, uint16_t port);
 int aft_accept(int fd, struct sockaddr *sa, socklen_t *len);

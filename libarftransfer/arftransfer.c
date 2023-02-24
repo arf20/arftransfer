@@ -615,6 +615,41 @@ aft_login(int fd, const char *user, const char *passwd) {
 }
 
 
+int
+aft_get(int fd, const char *path, int (*datahandler)(const char*, size_t)) {
+    if (aft_send_cmd(fd, AFT_CMD_GET, path, strlen(path) + 1) != AFT_OK) {
+        lasterror = AFT_SYSERR_SEND;
+        lastsyserror = errno;
+        return AFT_ERROR;
+    }
+
+    block_t block;
+    block_t infblock;
+    while (1) {
+        if (aft_recv_block(fd, &block) != AFT_OK) {
+            lasterror = AFT_SYSERR_RECV;
+            lastsyserror = errno;
+            return AFT_ERROR;
+        }
+
+        if (aft_check_block(&block) != AFT_OK)
+            return AFT_ERROR;
+
+        if (block.header.size == 0)
+            return AFT_OK;  /* end of transfer */
+
+        if (block.header.type == AFT_TYPE_DATA) {
+            datahandler(block.data, block.header.size);
+        } else if (block.header.type == AFT_TYPE_CDATA) {
+            //aft_inflate_cdatab(&block, &infblock);
+            // inflate
+        } else {
+            lasterror = AFT_PERR_TYPE;
+            return AFT_ERROR;
+        }
+    }
+}
+
 
 /* Server functions */
 

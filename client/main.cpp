@@ -35,6 +35,12 @@ int connect(const std::string& host, uint16_t port) {
     return -1;
 }
 
+int dataHandler(const char *data, size_t size) {
+    for (int i = 0; i < size; i++)
+        putchar(data[i]);
+    return 0;
+}
+
 int main(int argc, char **argv) {
     cxxopts::Options options("arftransfer", "arftransfer: Simple, fast and secure file transfer program - arf20");
 
@@ -74,7 +80,6 @@ int main(int argc, char **argv) {
 
     bool stopcli = false;
     std::string command;
-    std::string arg;
 
     while (!stopcli) {
         std::cout << "arftransfer> ";
@@ -123,8 +128,9 @@ int main(int argc, char **argv) {
         }
         else if (command == "cd") {
             CHECKFD
-            std::cin >> arg;
-            AFT_CHECK_A(aft_cd(fd, arg.c_str()), continue)
+            std::string path;
+            std::cin >> path;
+            AFT_CHECK_A(aft_cd(fd, path.c_str()), continue)
         }
         else if (command == "ls") {
             CHECKFD
@@ -159,6 +165,12 @@ int main(int argc, char **argv) {
             std::cin >> user;
             passwd = getpass("Password: ");
             AFT_CHECK_A(aft_login(fd, user.c_str(), passwd.c_str()), continue)
+        }
+        else if (command == "get") {
+            CHECKFD
+            std::string path;
+            std::cin >> path;
+            AFT_CHECK_A(aft_get(fd, path.c_str(), dataHandler), continue)
         }
         else if (command == "close" || command == "c") {
             CHECKFD

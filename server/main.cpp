@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 
 #include <security/pam_appl.h>
+#include <pwd.h>
 
 #include "inireader.hpp"
 
@@ -34,6 +35,8 @@ struct client {
     std::string pwd;
     bool logged;
     std::string user;
+    uid_t uid;
+    gid_t gid;
 };
 
 std::list<std::thread> acceptThreads;
@@ -45,6 +48,9 @@ namespace config {
     bool anonAllowed = false;
     std::string anonRoot;
 };
+
+char *readbuffer = new char[AFT_MAX_BLOCK_DATA_SIZE];
+char *writebuffer = new char[AFT_MAX_BLOCK_DATA_SIZE];
 
 // function used to get user input for pam (hack)
 int function_conversation(int num_msg, const struct pam_message **msg, struct pam_response **resp, void *appdata_ptr) {
@@ -164,11 +170,68 @@ bool handleCommand(client& c, const command_t& cmd) {
 
             pam_end(pamh, 0);
 
+            c.logged = true;
+            c.user = std::string(user);
+
+            struct passwd *pw = getpwnam(user);
+            c.pwd = pw->pw_dir;
+            c.uid = pw->pw_uid;
+            c.gid = pw->pw_gid;
+
             std::cout << "ACK" << std::endl;
             AFT_CHECK_A(aft_send_stat(c.fd, AFT_STAT_ACK, NULL, 0), return false)
 
-            c.logged = true;
-            c.user = std::string(user);
+            
+        } break;
+        case AFT_CMD_GET: {
+            char *path = (char*)cmd.targ;
+            std::string realpwd = !c.logged ? config::anonRoot + c.pwd : c.pwd;
+
+            std::cout << "GET ";
+            if (!c.logged) std::cout << "[" << config::anonRoot << "]";
+            std::cout << "[" << c.pwd << "]" << path << ": ";
+            
+            if (!std::filesystem::exists(realpwd + path)) {
+                std::cout << "ENOFILE" << std::endl;
+                AFT_CHECK_A(aft_send_stat(c.fd, AFT_STAT_ENOFILE, NULL, 0), return false)
+                break;
+            }
+
+            std::ifstream file(realpwd + path, std::ios::binary);
+            if (!file) {
+                if (errno == EACCES) {
+                    std::cout << "EACCESS" << std::endl;
+                    AFT_CHECK_A(aft_send_stat(c.fd, AFT_STAT_EACCESS, NULL, 0), return false)
+                    break;
+                } else {
+                    std::cout << "ESYS" << std::endl;
+                    AFT_CHECK_A(aft_send_stat(c.fd, AFT_STAT_ESYS, NULL, 0), return false)
+                    break;
+                }
+            }
+
+            auto begin = file.tellg();
+            file.seekg(0, std::ios::end);
+            auto end = file.tellg();
+            auto fsize = end - begin;
+            size_t sendSize = 0;
+
+            while (!file.eof()) {
+                if (fsize < AFT_MAX_BLOCK_DATA_SIZE) { sendSize = fsize; fsize -= sendSize; }
+                else { sendSize = AFT_MAX_BLOCK_DATA_SIZE; fsize -= sendSize; }
+
+                file.read(readbuffer, sendSize);
+                AFT_CHECK_A(aft_send_data(c.fd, readbuffer, sendSize), return false)
+                std::cout << ".";
+            }
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+            // terminate transfer with a data block of size 0
+            AFT_CHECK_A(aft_send_data(c.fd, NULL, 0), return false)
+
+            std::cout << ";" << std::endl;
+            
         } break;
     }
 
@@ -209,6 +272,9 @@ void receiveLoop(std::list<client>::iterator cit) {
                     return;
                 }
             } break;
+            default: {
+                std::cout << "Unexpected block type" << std::endl;
+            }
         }
     }
 }
@@ -248,7 +314,7 @@ void createConfig(const std::string& path) {
         std::cout << "Error writing config file" << std::endl;
         exit(1);
     }
-    conffile << "# Sample config file\nport=8088\naddress=0.0.0.0\nroot=/srv";
+    conffile << "# Sample config file\nport=8088\naddress=0.0.0.0\nallowanon=true\nanonroot=/srv";
     conffile.close();
 
 }

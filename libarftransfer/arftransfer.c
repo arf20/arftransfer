@@ -10,6 +10,7 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
+#include <netinet/tcp.h>
 #include <time.h>
 
 #include <zlib.h>
@@ -328,7 +329,7 @@ aft_flush(int fd) {
     int count;
     ioctl(fd, FIONREAD, &count);
     if (count < 1) return AFT_OK;
-    
+
     if (recv(fd, blockbuf, 0, MSG_TRUNC) < 0) {
         lasterror = AFT_SYSERR_RECV;
         lastsyserror = errno;
@@ -724,5 +725,13 @@ aft_accept(int fd, struct sockaddr *sa, socklen_t *len) {
         lastsyserror = errno;
         return AFT_ERROR;
     }
+
+    int val = 1;
+    if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &val, sizeof(int)) < 0) {
+        lasterror = AFT_SYSERR_ACCEPT;
+        lastsyserror = errno;
+        return AFT_ERROR;
+    }
+
     return cfd;
 }
